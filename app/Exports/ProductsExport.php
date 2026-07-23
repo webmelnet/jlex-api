@@ -12,12 +12,19 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class ProductsExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths
 {
+    protected $products;
+
+    public function __construct(?\Illuminate\Support\Collection $products = null)
+    {
+        $this->products = $products;
+    }
+
     /**
      * @return \Illuminate\Support\Collection
      */
     public function collection()
     {
-        return Product::with(['category.parent', 'brand'])
+        return $this->products ?? Product::with(['category.parent', 'brand'])
             ->orderBy('sku')
             ->get();
     }

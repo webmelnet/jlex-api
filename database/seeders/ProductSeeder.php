@@ -15,7 +15,7 @@ class ProductSeeder extends Seeder
     private array $supplierCache = [];
     private array $brandCache = [];
     private array $categoryCache = [];
-    private int $skuCounter = 1;
+    private array $skuCounters = [];
 
     /**
      * Known brand name prefixes, matched against the start of the article
@@ -289,8 +289,10 @@ class ProductSeeder extends Seeder
                     'supplier_id' => $supplier->id,
                 ]);
 
+                $brandName = $this->resolveBrand($name);
+
                 if (!$product->exists) {
-                    $product->sku = 'JLX-' . str_pad((string) $this->skuCounter++, 6, '0', STR_PAD_LEFT);
+                    $product->sku = $this->generateSku($brandName);
                     $created++;
                 } else {
                     $updated++;
@@ -305,7 +307,7 @@ class ProductSeeder extends Seeder
                 $product->is_active = true;
 
                 if (!$product->brand_id) {
-                    $product->brand_id = $this->getOrCreateBrand($this->resolveBrand($name))?->id;
+                    $product->brand_id = $this->getOrCreateBrand($brandName)?->id;
                 }
 
                 if (!$product->category_id) {
@@ -425,6 +427,30 @@ class ProductSeeder extends Seeder
         }
 
         return null;
+    }
+
+    /**
+     * Build a SKU using a brand-derived prefix (e.g. "BIO" for Biogesic),
+     * with a per-prefix running counter so each brand gets its own sequence.
+     * Falls back to "JLX" when the brand couldn't be resolved.
+     */
+    private function generateSku(?string $brand): string
+    {
+        $prefix = $this->brandSkuPrefix($brand);
+        $this->skuCounters[$prefix] = ($this->skuCounters[$prefix] ?? 0) + 1;
+
+        return $prefix . '-' . str_pad((string) $this->skuCounters[$prefix], 6, '0', STR_PAD_LEFT);
+    }
+
+    private function brandSkuPrefix(?string $brand): string
+    {
+        if ($brand === null) {
+            return 'JLX';
+        }
+
+        $letters = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $brand));
+
+        return $letters === '' ? 'JLX' : substr($letters, 0, 3);
     }
 
     private function getOrCreateBrand(?string $name): ?Brand

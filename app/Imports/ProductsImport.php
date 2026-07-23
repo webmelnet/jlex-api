@@ -220,23 +220,23 @@ class ProductsImport implements ToModel, WithHeadingRow, WithValidation, WithBat
      */
     private function generateSKU()
     {
-        $lastProduct = Product::where('sku', 'like', 'DNS-%')
+        $lastProduct = Product::where('sku', 'like', 'JLX-%')
             ->orderByRaw('CAST(SUBSTRING(sku, 5) AS UNSIGNED) DESC')
             ->first();
 
         if (!$lastProduct) {
-            return 'DNS-000001';
+            return 'JLX-000001';
         }
 
-        preg_match('/DNS-(\d+)/', $lastProduct->sku, $matches);
+        preg_match('/JLX-(\d+)/', $lastProduct->sku, $matches);
         if (!$matches) {
-            return 'DNS-000001';
+            return 'JLX-000001';
         }
 
         $lastNumber = (int) $matches[1];
         $nextNumber = $lastNumber + 1;
 
-        return 'DNS-' . str_pad($nextNumber, 6, '0', STR_PAD_LEFT);
+        return 'JLX-' . str_pad($nextNumber, 6, '0', STR_PAD_LEFT);
     }
 
     /**

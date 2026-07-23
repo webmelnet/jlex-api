@@ -25,8 +25,15 @@ class ProductController extends Controller
 
     public function index(Request $request)
     {
-        $query = Product::with(['category', 'brand', 'images']);
+        $query = $this->applyProductFilters(Product::with(['category', 'brand', 'images']), $request);
 
+        $products = $query->get();
+
+        return response()->json($products);
+    }
+
+    private function applyProductFilters($query, Request $request)
+    {
         if ($request->has('is_active')) {
             $query->where('is_active', $request->is_active);
         }
@@ -61,9 +68,7 @@ class ProductController extends Controller
             }
         }
 
-        $products = $query->get();
-
-        return response()->json($products);
+        return $query;
     }
 
     public function store(Request $request)
@@ -286,7 +291,7 @@ class ProductController extends Controller
      * Get the next SKU for a given brand or default prefix
      * 
      * Query parameters:
-     * - brand_id: (optional) Brand ID to generate SKU for specific brand. If not provided, uses 'DNS' prefix
+     * - brand_id: (optional) Brand ID to generate SKU for specific brand. If not provided, uses 'JLX' prefix
      * 
      * Returns the next sequential SKU based on the brand's 3-character code
      * Format: {PREFIX}-{6-digit-number}  e.g. NKE-000042
@@ -303,9 +308,24 @@ class ProductController extends Controller
         ]);
     }
 
-    public function export()
+    public function export(Request $request)
     {
-        return Excel::download(new ProductsExport, 'products_' . date('Y-m-d_His') . '.xlsx');
+        $query = $this->applyProductFilters(Product::with(['category.parent', 'brand']), $request);
+        $products = $query->orderBy('sku')->get();
+
+        if ($request->boolean('on_sale')) {
+            $products = $products->filter(fn ($product) => $product->is_on_sale)->values();
+        }
+
+        if ($request->has('expiration')) {
+            if ($request->expiration === 'expired') {
+                $products = $products->filter(fn ($product) => $product->is_expired)->values();
+            } elseif ($request->expiration === 'near_expiration') {
+                $products = $products->filter(fn ($product) => $product->is_near_expiration)->values();
+            }
+        }
+
+        return Excel::download(new ProductsExport($products), 'products_' . date('Y-m-d_His') . '.xlsx');
     }
 
     public function import(Request $request)

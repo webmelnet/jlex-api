@@ -99,7 +99,7 @@ class ProductService
                     $brandId = !empty($data['brand_id']) ? $data['brand_id'] : null;
                     $prefix = ($brandId && isset($brandCodes[$brandId]))
                         ? strtoupper($brandCodes[$brandId])
-                        : 'DNS';
+                        : 'JLX';
 
                     if (!isset($skuCounters[$prefix])) {
                         $skuCounters[$prefix] = $this->getLastSkuNumber($prefix);
@@ -271,12 +271,12 @@ class ProductService
      * Get the next SKU for a given brand or default prefix.
      * This method generates the NEXT sequential SKU (not the last one).
      * 
-     * @param int|null $brandId Brand ID to generate SKU for. If null, uses 'DNS' prefix
+     * @param int|null $brandId Brand ID to generate SKU for. If null, uses 'JLX' prefix
      * @return string The next SKU in format {PREFIX}-{6-digit-number} e.g. NKE-000042
      */
     public function getNextSku(?int $brandId = null): string
     {
-        $prefix = 'DNS';
+        $prefix = 'JLX';
 
         if ($brandId) {
             $brand = Brand::find($brandId);
@@ -291,15 +291,15 @@ class ProductService
     }
 
     /**
-     * Get the last SKU for a given brand (by brand_id), or for the default 'DNS' prefix.
+     * Get the last SKU for a given brand (by brand_id), or for the default 'JLX' prefix.
      * This returns the actual last SKU that exists in the database.
-     * 
-     * @param int|null $brandId Brand ID. If null, uses 'DNS' prefix
+     *
+     * @param int|null $brandId Brand ID. If null, uses 'JLX' prefix
      * @return string|null The last SKU found, or null if none exist
      */
     public function getLastSkuForBrand(?int $brandId = null): ?string
     {
-        $prefix = 'DNS';
+        $prefix = 'JLX';
 
         if ($brandId) {
             $brand = Brand::find($brandId);
@@ -364,16 +364,16 @@ class ProductService
 
     /**
      * Generate a SKU using the brand's 3-character code as prefix.
-     * Falls back to 'DNS' if no brand or brand has no code.
+     * Falls back to 'JLX' if no brand or brand has no code.
      *
      * Format: {PREFIX}-{6-digit-number}  e.g. NKE-000042
-     * 
+     *
      * @param int|null $brandId Brand ID to generate SKU for
      * @return string The generated SKU
      */
     private function generateSKU(?int $brandId = null): string
     {
-        $prefix = 'DNS';
+        $prefix = 'JLX';
 
         if ($brandId) {
             $brand = Brand::find($brandId);
@@ -391,7 +391,7 @@ class ProductService
      * Get the last sequential number used for a given SKU prefix.
      * For example, if prefix is 'NKE' and last SKU is 'NKE-000042', returns 42.
      * 
-     * @param string $prefix The SKU prefix (e.g., 'NKE', 'DNS')
+     * @param string $prefix The SKU prefix (e.g., 'NKE', 'JLX')
      * @return int The last sequential number, or 0 if no products with this prefix exist
      */
     private function getLastSkuNumber(string $prefix): int
