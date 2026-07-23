@@ -1,0 +1,50 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+      # - dev
+      # - staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROD_EC2_SSH_KEY }}
+
+      - name: Add EC2 to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.PROD_EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to EC2
+        run: |
+          ssh ${{ secrets.PROD_EC2_USERNAME }}@${{ secrets.PROD_EC2_HOST }} 'bash -s' << 'EOF'
+            cd /var/www/mpos-api
+
+            sudo chown -R $USER:$USER .
+
+            git checkout main
+            git pull origin main
+
+            composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
+
+            php artisan cache:clear-jobs --all --force
+            php artisan optimize:clear
+            php artisan optimize
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            sudo chown -R www-data:www-data /var/www/mpos-api
+            sudo find /var/www/mpos-api -type f -exec chmod 644 {} \;
+            sudo find /var/www/mpos-api -type d -exec chmod 755 {} \;
+            sudo chmod -R 775 /var/www/mpos-api/storage /var/www/mpos-api/bootstrap/cache
+          EOF
