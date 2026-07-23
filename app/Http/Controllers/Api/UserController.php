@@ -20,12 +20,7 @@ class UserController extends Controller
 
     public function index()
     {
-        $roleNames = ['Superadmin', 'Admin', 'Manager', 'Cashier'];
-        $users = User::whereHas('roles', function ($query) use ($roleNames) {
-            $query->whereIn('name', $roleNames);
-        })
-            ->with(['roles'])
-            ->get();
+        $users = User::with(['roles'])->get();
 
         $usersWithRoles = $users->map(function ($user) {
             $userData = $user->toArray();
