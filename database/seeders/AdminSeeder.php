@@ -22,7 +22,7 @@ class AdminSeeder extends Seeder
         $pharmacyAssistantRole = Role::firstOrCreate(['name' => 'Pharmacy Assistant']);
 
         $superadminAdmin = User::firstOrCreate(
-            ['email' => 'superadmin@melcore.com'],
+            ['email' => 'superadmin@jlexpharmacy.com'],
             [
                 'name' => 'Superadmin',
                 'email_verified_at' => now(),
@@ -33,7 +33,7 @@ class AdminSeeder extends Seeder
         $superadminAdmin->createToken('auth_token')->plainTextToken;
 
         $admin = User::firstOrCreate(
-            ['email' => 'admin@melcore.com'],
+            ['email' => 'admin@jlexpharmacy.com'],
             [
                 'name' => 'Admin',
                 'email_verified_at' => now(),
@@ -44,7 +44,7 @@ class AdminSeeder extends Seeder
         $admin->createToken('auth_token')->plainTextToken;
 
         $manager = User::firstOrCreate(
-            ['email' => 'manager@melcore.com'],
+            ['email' => 'manager@jlexpharmacy.com'],
             [
                 'name' => 'Manager',
                 'email_verified_at' => now(),
@@ -55,7 +55,7 @@ class AdminSeeder extends Seeder
         $manager->createToken('auth_token')->plainTextToken;
 
         $cashier = User::firstOrCreate(
-            ['email' => 'cashier@melcore.com'],
+            ['email' => 'cashier@jlexpharmacy.com'],
             [
                 'name' => 'Cashier',
                 'email_verified_at' => now(),
@@ -66,7 +66,7 @@ class AdminSeeder extends Seeder
         $cashier->createToken('auth_token')->plainTextToken;
 
         $pharmacyAssistant = User::firstOrCreate(
-            ['email' => 'pharmacy@melcore.com'],
+            ['email' => 'pharmacy@jlexpharmacy.com'],
             [
                 'name' => 'Pharmacy Assistant',
                 'email_verified_at' => now(),
