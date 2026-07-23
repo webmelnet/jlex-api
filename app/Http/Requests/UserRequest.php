@@ -17,7 +17,7 @@ class UserRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:users,name,' . $this->user?->id,
             'email' => 'required|email|unique:users,email,' . $this->user?->id,
             'password' => 'nullable|string|min:8',
             'role' => 'nullable|string|exists:roles,name',
