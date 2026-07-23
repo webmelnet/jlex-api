@@ -123,12 +123,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('/sales', SaleController::class);
 
     // Order Queue Routes
+    Route::post('/order-queue/{orderQueue}/start-edit', [OrderQueueController::class, 'startEdit']);
+    Route::post('/order-queue/{orderQueue}/cancel-edit', [OrderQueueController::class, 'cancelEdit']);
     Route::post('/order-queue/{orderQueue}/claim', [OrderQueueController::class, 'claim']);
     Route::post('/order-queue/{orderQueue}/release', [OrderQueueController::class, 'release']);
     Route::post('/order-queue/{orderQueue}/cancel', [OrderQueueController::class, 'cancel']);
     Route::get('/order-queue', [OrderQueueController::class, 'index']);
+    Route::get('/order-queue/my-history', [OrderQueueController::class, 'myHistory']);
     Route::post('/order-queue', [OrderQueueController::class, 'store']);
     Route::get('/order-queue/{orderQueue}', [OrderQueueController::class, 'show']);
+    Route::put('/order-queue/{orderQueue}', [OrderQueueController::class, 'update']);
 
     // Purchase Order Routes
     Route::post('/purchase-orders/{purchaseOrder}/receive-items', [PurchaseOrderController::class, 'receiveItems']);

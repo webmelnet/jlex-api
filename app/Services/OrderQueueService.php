@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\DB;
 
 class OrderQueueService
 {
+    // How long an edit lock stays valid before it's considered stale (e.g. tab closed mid-edit)
+    private const EDIT_LOCK_MINUTES = 5;
+
     public function createQueueOrder(array $data)
     {
         return DB::transaction(function () use ($data) {
@@ -56,6 +59,78 @@ class OrderQueueService
         }
     }
 
+    public function updateQueueOrder(OrderQueue $orderQueue, array $data)
+    {
+        return DB::transaction(function () use ($orderQueue, $data) {
+            $locked = OrderQueue::where('id', $orderQueue->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->status !== 'queued') {
+                throw new \Exception('Only orders that are still queued can be edited');
+            }
+
+            $locked->customer_id = $data['customer_id'] ?? null;
+            $locked->customer_name = $data['customer_name'] ?? null;
+            $locked->customer_type = $data['customer_type'] ?? 'walk-in';
+            $locked->notes = $data['notes'] ?? null;
+            $locked->editing_by_user_id = null;
+            $locked->editing_started_at = null;
+            $locked->save();
+
+            $locked->items()->delete();
+
+            foreach ($data['items'] as $item) {
+                $product = Product::findOrFail($item['product_id']);
+
+                OrderQueueItem::create([
+                    'order_queue_id' => $locked->id,
+                    'product_id' => $product->id,
+                    'quantity' => $item['quantity'],
+                    'price' => $product->effective_price,
+                    'notes' => $item['notes'] ?? null,
+                ]);
+            }
+
+            return $locked->load(['items.product', 'customer', 'createdBy', 'claimedBy']);
+        });
+    }
+
+    public function startEditQueueOrder(OrderQueue $orderQueue)
+    {
+        return DB::transaction(function () use ($orderQueue) {
+            $locked = OrderQueue::where('id', $orderQueue->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->status !== 'queued') {
+                throw new \Exception('Only orders that are still queued can be edited');
+            }
+
+            if ($this->isEditLockActive($locked) && $locked->editing_by_user_id !== auth()->id()) {
+                $editorName = optional($locked->editingBy)->name ?? 'another user';
+                throw new \Exception("This order is already being edited by {$editorName}");
+            }
+
+            $locked->editing_by_user_id = auth()->id();
+            $locked->editing_started_at = now();
+            $locked->save();
+
+            return $locked->load(['items.product', 'customer', 'createdBy', 'claimedBy', 'editingBy']);
+        });
+    }
+
+    public function cancelEditQueueOrder(OrderQueue $orderQueue)
+    {
+        return DB::transaction(function () use ($orderQueue) {
+            $locked = OrderQueue::where('id', $orderQueue->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->editing_by_user_id === auth()->id()) {
+                $locked->editing_by_user_id = null;
+                $locked->editing_started_at = null;
+                $locked->save();
+            }
+
+            return $locked;
+        });
+    }
+
     public function claimQueueOrder(OrderQueue $orderQueue)
     {
         return DB::transaction(function () use ($orderQueue) {
@@ -65,6 +140,11 @@ class OrderQueueService
                 throw new \Exception('This order is no longer available to claim');
             }
 
+            if ($this->isEditLockActive($locked)) {
+                $editorName = optional($locked->editingBy)->name ?? 'another user';
+                throw new \Exception("This order is currently being edited by {$editorName} and cannot be claimed");
+            }
+
             $locked->claimed_by_user_id = auth()->id();
             $locked->claimed_at = now();
             $locked->status = 'claimed';
@@ -72,6 +152,13 @@ class OrderQueueService
 
             return $locked->load(['items.product', 'customer', 'createdBy', 'claimedBy']);
         });
+    }
+
+    private function isEditLockActive(OrderQueue $orderQueue): bool
+    {
+        return $orderQueue->editing_by_user_id !== null
+            && $orderQueue->editing_started_at !== null
+            && $orderQueue->editing_started_at->gt(now()->subMinutes(self::EDIT_LOCK_MINUTES));
     }
 
     public function releaseQueueOrder(OrderQueue $orderQueue)

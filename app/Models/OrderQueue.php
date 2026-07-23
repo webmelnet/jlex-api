@@ -18,6 +18,8 @@ class OrderQueue extends Model
         'created_by_user_id',
         'claimed_by_user_id',
         'claimed_at',
+        'editing_by_user_id',
+        'editing_started_at',
         'sale_id',
         'status',
         'notes',
@@ -25,6 +27,7 @@ class OrderQueue extends Model
 
     protected $casts = [
         'claimed_at' => 'datetime',
+        'editing_started_at' => 'datetime',
     ];
 
     // Relationships
@@ -41,6 +44,11 @@ class OrderQueue extends Model
     public function claimedBy()
     {
         return $this->belongsTo(User::class, 'claimed_by_user_id');
+    }
+
+    public function editingBy()
+    {
+        return $this->belongsTo(User::class, 'editing_by_user_id');
     }
 
     public function items()
