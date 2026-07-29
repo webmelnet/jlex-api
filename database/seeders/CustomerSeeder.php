@@ -23,7 +23,8 @@ class CustomerSeeder extends Seeder
         for ($i = 0; $i < 40; $i++) {
             $location = $faker->randomElement($cities);
             Customer::create([
-                'name'           => $faker->name,
+                'first_name'     => $faker->firstName,
+                'last_name'      => $faker->lastName,
                 'email'          => $faker->boolean(60) ? $faker->unique()->safeEmail : null,
                 'phone'          => $faker->mobileNumber,
                 'address'        => $faker->streetAddress,

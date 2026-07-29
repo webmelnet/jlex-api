@@ -19,7 +19,9 @@ class CustomerController extends Controller
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
                   ->orWhere('email', 'like', "%{$search}%")
                   ->orWhere('phone', 'like', "%{$search}%");
             });
@@ -33,7 +35,8 @@ class CustomerController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
             'email' => 'nullable|email',
             'phone' => 'nullable|string',
             'address' => 'nullable|string',
@@ -44,6 +47,9 @@ class CustomerController extends Controller
             'loyalty_points' => 'nullable|integer|min:0',
             'notes' => 'nullable|string',
             'is_active' => 'nullable|boolean',
+            'customer_category' => 'nullable|in:regular,pwd,senior',
+            'id_number' => 'nullable|string|max:100',
+            'id_expiry_date' => 'nullable|date',
         ]);
 
         $customer = Customer::create($validated);
@@ -62,7 +68,8 @@ class CustomerController extends Controller
     public function update(Request $request, Customer $customer)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
             'email' => 'nullable|email',
             'phone' => 'nullable|string',
             'address' => 'nullable|string',
@@ -73,6 +80,9 @@ class CustomerController extends Controller
             'loyalty_points' => 'nullable|integer|min:0',
             'notes' => 'nullable|string',
             'is_active' => 'nullable|boolean',
+            'customer_category' => 'nullable|in:regular,pwd,senior',
+            'id_number' => 'nullable|string|max:100',
+            'id_expiry_date' => 'nullable|date',
         ]);
 
         $customer->update($validated);

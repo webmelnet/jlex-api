@@ -11,7 +11,8 @@ class Customer extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'name',
+        'first_name',
+        'last_name',
         'email',
         'phone',
         'address',
@@ -22,11 +23,21 @@ class Customer extends Model
         'loyalty_points',
         'notes',
         'is_active',
+        'customer_category',
+        'id_number',
+        'id_expiry_date',
     ];
 
     protected $casts = [
         'loyalty_points' => 'integer',
         'is_active' => 'boolean',
+        'id_expiry_date' => 'date',
+    ];
+
+    protected $appends = [
+        'name',
+        'is_discount_eligible',
+        'discount_rate',
     ];
 
     // Relationships
@@ -61,5 +72,20 @@ class Customer extends Model
     public function getTotalPurchasesAttribute()
     {
         return $this->sales()->sum('total');
+    }
+
+    public function getNameAttribute()
+    {
+        return trim("{$this->first_name} {$this->last_name}");
+    }
+
+    public function getIsDiscountEligibleAttribute()
+    {
+        return in_array($this->customer_category, ['pwd', 'senior']);
+    }
+
+    public function getDiscountRateAttribute()
+    {
+        return $this->is_discount_eligible ? 0.20 : 0;
     }
 }
