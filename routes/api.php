@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\ShiftSettlementController;
 use App\Http\Controllers\Api\ExchangeController;
 use App\Http\Controllers\Api\WebsiteConfigurationController;
 use App\Http\Controllers\Api\AppSettingController;
+use App\Http\Controllers\Api\TimeLogController;
 
 Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
     $user = $request->user();
@@ -102,6 +103,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/customers/{id}/restore', [CustomerController::class, 'restore']);
     Route::delete('/customers/{id}/force', [CustomerController::class, 'forceDelete']);
     Route::apiResource('/customers', CustomerController::class);
+
+    // Time Log / DTR Routes
+    Route::post('/time-logs/clock-in', [TimeLogController::class, 'clockIn']);
+    Route::post('/time-logs/clock-out', [TimeLogController::class, 'clockOut']);
+    Route::get('/time-logs/my-status', [TimeLogController::class, 'myStatus']);
+    Route::get('/time-logs/my-history', [TimeLogController::class, 'myHistory']);
+    Route::get('/time-logs', [TimeLogController::class, 'index']);
+    Route::post('/time-logs', [TimeLogController::class, 'store']);
+    Route::put('/time-logs/{timeLog}', [TimeLogController::class, 'update']);
+    Route::delete('/time-logs/{timeLog}', [TimeLogController::class, 'destroy']);
 
     // Shift Settlement Routes
     Route::post('/shift-settlements', [ShiftSettlementController::class, 'store']);
