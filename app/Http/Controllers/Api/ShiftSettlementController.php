@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ShiftSettlement;
 use App\Models\Sale;
 use App\Models\Exchange;
+use App\Models\CashDrawerEntry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -112,6 +113,15 @@ class ShiftSettlementController extends Controller
             $exchangeCashTotal  = $exchanges->where('payment_method', 'cash')->sum('amount_paid');
             $exchangeGcashTotal = $exchanges->where('payment_method', 'gcash')->sum('amount_paid');
 
+            $shiftCashTotal = round($cashTotal + $exchangeCashTotal, 2);
+
+            $drawerEntries = CashDrawerEntry::whereBetween('created_at', [$from, $to])->get();
+            $startingCash      = round($drawerEntries->where('type', 'starting_cash')->sum('amount'), 2);
+            $cashAdded         = round($drawerEntries->where('type', 'cash_added')->sum('amount'), 2);
+            $cashExpenses      = round($drawerEntries->where('type', 'cash_expense')->sum('amount'), 2);
+            $nonCashExpenses   = round($drawerEntries->where('type', 'non_cash_expense')->sum('amount'), 2);
+            $cashInDrawer      = round($startingCash + $cashAdded + $shiftCashTotal - $cashExpenses, 2);
+
             $shifts[] = [
                 'shift_number'       => $i + 1,
                 'label'              => 'Shift ' . ($i + 1),
@@ -121,11 +131,16 @@ class ShiftSettlementController extends Controller
                 'sales'              => $sales,
                 'count'              => $sales->count(),
                 'total'              => round($total, 2),
-                'cash_total'         => round($cashTotal + $exchangeCashTotal, 2),
+                'cash_total'         => $shiftCashTotal,
                 'gcash_total'        => round($gcashTotal + $exchangeGcashTotal, 2),
                 'exchanges'          => $exchanges,
                 'exchanges_count'    => $exchanges->count(),
                 'exchanges_paid'     => round($exchanges->sum('amount_paid'), 2),
+                'starting_cash'      => $startingCash,
+                'cash_added'         => $cashAdded,
+                'cash_expenses'      => $cashExpenses,
+                'non_cash_expenses'  => $nonCashExpenses,
+                'cash_in_drawer'     => $cashInDrawer,
             ];
         }
 

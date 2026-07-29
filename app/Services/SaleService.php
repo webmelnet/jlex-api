@@ -6,6 +6,7 @@ use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\Product;
 use App\Models\StockMovement;
+use App\Models\CashDrawerEntry;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -88,6 +89,18 @@ class SaleService
             $sale->total = $subtotal + $sale->tax - $sale->discount;
             $sale->change_amount = $sale->amount_paid - $sale->total;
             $sale->save();
+
+            // Staff purchases aren't cash income — log them as a non-cash
+            // expense so they show up in the shift's drawer totals instead
+            // of inflating cash/gcash sales.
+            if ($sale->customer_type === 'staff') {
+                CashDrawerEntry::create([
+                    'type' => 'non_cash_expense',
+                    'amount' => $sale->total,
+                    'description' => "Staff purchase - Invoice {$sale->invoice_number}",
+                    'user_id' => $data['user_id'],
+                ]);
+            }
 
             // Add loyalty points to customer if applicable
             if ($sale->customer_id && $sale->status === 'completed') {

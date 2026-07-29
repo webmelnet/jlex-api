@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\HeroSlideController;
 use App\Http\Controllers\Api\SalesBannerController;
 use App\Http\Controllers\Api\PromoVideoController;
 use App\Http\Controllers\Api\ShiftSettlementController;
+use App\Http\Controllers\Api\CashDrawerEntryController;
 use App\Http\Controllers\Api\ExchangeController;
 use App\Http\Controllers\Api\WebsiteConfigurationController;
 use App\Http\Controllers\Api\AppSettingController;
@@ -118,6 +119,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/shift-settlements', [ShiftSettlementController::class, 'store']);
     Route::get('/shift-settlements/today', [ShiftSettlementController::class, 'today']);
     Route::get('/shift-settlements/by-date', [ShiftSettlementController::class, 'byDate']);
+
+    // Cash Drawer Entry Routes
+    Route::post('/cash-drawer-entries', [CashDrawerEntryController::class, 'store']);
 
     // Exchange Routes
     Route::post('/exchanges/lookup-sale', [ExchangeController::class, 'lookupSale']);
