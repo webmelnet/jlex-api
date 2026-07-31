@@ -33,6 +33,12 @@ class CategoryController extends Controller
             }
         }
 
+        if ($request->filled('brand_id')) {
+            $query->whereHas('products', function ($productsQuery) use ($request) {
+                $productsQuery->where('brand_id', $request->brand_id);
+            });
+        }
+
         $categories = $query->get();
 
         return response()->json($categories);

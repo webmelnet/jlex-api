@@ -86,6 +86,11 @@ class Product extends Model
         return $this->hasMany(StockMovement::class);
     }
 
+    public function inventoryCycleItems()
+    {
+        return $this->hasMany(InventoryCycleItem::class);
+    }
+
     /**
      * Get all images for this product
      */

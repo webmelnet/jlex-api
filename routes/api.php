@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\SaleController;
 use App\Http\Controllers\Api\OrderQueueController;
 use App\Http\Controllers\Api\PurchaseOrderController;
 use App\Http\Controllers\Api\StockController;
+use App\Http\Controllers\Api\InventoryCycleController;
 use App\Http\Controllers\Api\ImageController;
 use App\Http\Controllers\Api\FeaturedProductController;
 use App\Http\Controllers\Api\HeroSlideController;
@@ -163,6 +164,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/stock/inventory-value', [StockController::class, 'inventoryValue']);
     Route::get('/stock/low-stock-alert', [StockController::class, 'lowStockAlert']);
     Route::get('/stock/report', [StockController::class, 'report']);
+
+    // Inventory Cycle Routes
+    Route::get('/inventory-cycle', [InventoryCycleController::class, 'index']);
+    Route::post('/inventory-cycle', [InventoryCycleController::class, 'store']);
+    Route::get('/inventory-cycle/{cycle}', [InventoryCycleController::class, 'show']);
+    Route::post('/inventory-cycle/{cycle}/count', [InventoryCycleController::class, 'recordCount']);
+    Route::post('/inventory-cycle/{cycle}/close', [InventoryCycleController::class, 'close']);
+    Route::post('/inventory-cycle/{cycle}/reopen', [InventoryCycleController::class, 'reopen']);
 
     // Website / CMS Routes (authenticated)
     Route::prefix('website')->group(function () {
