@@ -92,11 +92,11 @@ class TimeLogController extends Controller
     }
 
     /**
-     * GET /api/time-logs  (Superadmin/Admin only) — DTR management listing.
+     * GET /api/time-logs  (Superadmin/Admin/Manager only) — DTR management listing.
      */
     public function index(Request $request)
     {
-        abort_unless($request->user()->hasAnyRole(['Superadmin', 'Admin']), 403);
+        abort_unless($request->user()->hasAnyRole(['Superadmin', 'Admin', 'Manager']), 403);
 
         $query = TimeLog::with(['user.roles', 'creator']);
 
@@ -123,11 +123,11 @@ class TimeLogController extends Controller
     }
 
     /**
-     * POST /api/time-logs  (Superadmin/Admin only) — manual entry, e.g. to backfill a forgotten clock-in.
+     * POST /api/time-logs  (Superadmin/Admin/Manager only) — manual entry, e.g. to backfill a forgotten clock-in.
      */
     public function store(Request $request)
     {
-        abort_unless($request->user()->hasAnyRole(['Superadmin', 'Admin']), 403);
+        abort_unless($request->user()->hasAnyRole(['Superadmin', 'Admin', 'Manager']), 403);
 
         $validated = $request->validate([
             'user_id'   => 'required|exists:users,id',
@@ -146,11 +146,11 @@ class TimeLogController extends Controller
     }
 
     /**
-     * PUT /api/time-logs/{timeLog}  (Superadmin/Admin only) — correct an entry.
+     * PUT /api/time-logs/{timeLog}  (Superadmin/Admin/Manager only) — correct an entry.
      */
     public function update(Request $request, TimeLog $timeLog)
     {
-        abort_unless($request->user()->hasAnyRole(['Superadmin', 'Admin']), 403);
+        abort_unless($request->user()->hasAnyRole(['Superadmin', 'Admin', 'Manager']), 403);
 
         $validated = $request->validate([
             'work_date' => 'required|date',
@@ -168,11 +168,11 @@ class TimeLogController extends Controller
     }
 
     /**
-     * DELETE /api/time-logs/{timeLog}  (Superadmin/Admin only)
+     * DELETE /api/time-logs/{timeLog}  (Superadmin/Admin/Manager only)
      */
     public function destroy(Request $request, TimeLog $timeLog)
     {
-        abort_unless($request->user()->hasAnyRole(['Superadmin', 'Admin']), 403);
+        abort_unless($request->user()->hasAnyRole(['Superadmin', 'Admin', 'Manager']), 403);
 
         $timeLog->delete();
 

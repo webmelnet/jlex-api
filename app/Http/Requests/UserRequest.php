@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UserRequest extends FormRequest
 {
@@ -23,6 +24,14 @@ class UserRequest extends FormRequest
             'role' => 'nullable|string|exists:roles,name',
             'roles' => 'nullable|array',
             'roles.*' => 'string|exists:roles,name',
+            'require_dtr' => 'sometimes|boolean',
+            'daily_hours_required' => [
+                Rule::requiredIf(fn () => $this->boolean('require_dtr')),
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:24',
+            ],
         ];
         
         return $rules;

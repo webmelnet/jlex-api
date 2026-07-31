@@ -24,7 +24,7 @@ class TimeLog extends Model
         'clock_out' => 'datetime',
     ];
 
-    protected $appends = ['duration_minutes'];
+    protected $appends = ['duration_minutes', 'overtime_minutes'];
 
     public function user()
     {
@@ -63,5 +63,25 @@ class TimeLog extends Model
         }
 
         return $this->clock_in->diffInMinutes($this->clock_out);
+    }
+
+    /**
+     * Minutes worked beyond the user's daily_hours_required, or null when
+     * the shift isn't finished yet or the user has no required hours set.
+     */
+    public function getOvertimeMinutesAttribute(): ?int
+    {
+        $duration = $this->duration_minutes;
+        $user = $this->user;
+
+        if ($duration === null || !$user?->require_dtr || $user->daily_hours_required === null) {
+            return null;
+        }
+
+        $requiredHours = $user->daily_hours_required;
+
+        $overtime = $duration - ($requiredHours * 60);
+
+        return $overtime > 0 ? (int) round($overtime) : 0;
     }
 }

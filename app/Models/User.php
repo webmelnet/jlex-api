@@ -24,6 +24,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'require_dtr',
+        'daily_hours_required',
     ];
 
     /**
@@ -46,6 +48,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'require_dtr' => 'boolean',
+            'daily_hours_required' => 'float',
         ];
     }
 
