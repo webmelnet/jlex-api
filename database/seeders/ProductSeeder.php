@@ -289,10 +289,10 @@ class ProductSeeder extends Seeder
                     'supplier_id' => $supplier->id,
                 ]);
 
-                $brandName = $this->resolveBrand($name);
+                $brand = $this->getOrCreateBrand($this->resolveBrand($name));
 
                 if (!$product->exists) {
-                    $product->sku = $this->generateSku($brandName);
+                    $product->sku = $this->generateSku($brand);
                     $created++;
                 } else {
                     $updated++;
@@ -307,7 +307,7 @@ class ProductSeeder extends Seeder
                 $product->is_active = true;
 
                 if (!$product->brand_id) {
-                    $product->brand_id = $this->getOrCreateBrand($brandName)?->id;
+                    $product->brand_id = $brand?->id;
                 }
 
                 if (!$product->category_id) {
@@ -430,27 +430,16 @@ class ProductSeeder extends Seeder
     }
 
     /**
-     * Build a SKU using a brand-derived prefix (e.g. "BIO" for Biogesic),
-     * with a per-prefix running counter so each brand gets its own sequence.
-     * Falls back to "JLX" when the brand couldn't be resolved.
+     * Build a SKU using the brand's code (e.g. "BIO" for Biogesic), with a
+     * per-prefix running counter so each brand gets its own sequence. Falls
+     * back to "JLX" when there is no brand or the brand has no code.
      */
-    private function generateSku(?string $brand): string
+    private function generateSku(?Brand $brand): string
     {
-        $prefix = $this->brandSkuPrefix($brand);
+        $prefix = $brand?->code ?? 'JLX';
         $this->skuCounters[$prefix] = ($this->skuCounters[$prefix] ?? 0) + 1;
 
         return $prefix . '-' . str_pad((string) $this->skuCounters[$prefix], 6, '0', STR_PAD_LEFT);
-    }
-
-    private function brandSkuPrefix(?string $brand): string
-    {
-        if ($brand === null) {
-            return 'JLX';
-        }
-
-        $letters = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $brand));
-
-        return $letters === '' ? 'JLX' : substr($letters, 0, 3);
     }
 
     private function getOrCreateBrand(?string $name): ?Brand
@@ -465,10 +454,39 @@ class ProductSeeder extends Seeder
 
         $brand = Brand::firstOrCreate(
             ['name' => $name],
-            ['is_active' => true]
+            ['is_active' => true, 'code' => $this->generateBrandCode($name)]
         );
 
+        if ($brand->code === null) {
+            $brand->code = $this->generateBrandCode($name);
+            $brand->save();
+        }
+
         return $this->brandCache[$name] = $brand;
+    }
+
+    /**
+     * Derive a unique 3-character brand code from the brand name (e.g. "BIO"
+     * for Biogesic). Falls back through digit and letter suffixes on the
+     * first two characters if the natural prefix is already taken.
+     */
+    private function generateBrandCode(string $name): string
+    {
+        $letters = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $name));
+        $base = $letters === '' ? 'JLX' : str_pad(substr($letters, 0, 3), 3, 'X');
+
+        if (!Brand::where('code', $base)->exists()) {
+            return $base;
+        }
+
+        foreach (array_merge(range(1, 9), range('A', 'Z')) as $suffix) {
+            $candidate = substr($base, 0, 2) . $suffix;
+            if (!Brand::where('code', $candidate)->exists()) {
+                return $candidate;
+            }
+        }
+
+        return $base;
     }
 
     private function getOrCreateCategory(?string $name): ?Category
