@@ -20,6 +20,8 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
+	'https://app.jlexpharmacy.com',
+        'https://api.jlexpharmacy.com',    
         env('FRONTEND_URL', 'http://localhost:3000')
     ],
 
