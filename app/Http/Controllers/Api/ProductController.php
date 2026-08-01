@@ -94,6 +94,7 @@ class ProductController extends Controller
             'track_inventory' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
             'stock_verified' => 'nullable|boolean',
+            'return_policy' => 'nullable|in:no_return,return_24h',
             'notes' => 'nullable|string',
             'expiration_date' => 'nullable|date',
         ]);
@@ -216,6 +217,7 @@ class ProductController extends Controller
             'track_inventory' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
             'stock_verified' => 'nullable|boolean',
+            'return_policy' => 'nullable|in:no_return,return_24h',
             'notes' => 'nullable|string',
             'expiration_date' => 'nullable|date',
         ]);

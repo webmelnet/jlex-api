@@ -30,6 +30,7 @@ class Product extends Model
         'track_inventory',
         'is_active',
         'stock_verified',
+        'return_policy',
         'notes',
         'expiration_date',
     ];
