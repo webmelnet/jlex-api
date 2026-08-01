@@ -107,11 +107,11 @@ class ShiftSettlementController extends Controller
 
             $total      = $sales->sum('total');
             $cashTotal  = $sales->where('payment_method', 'cash')->sum('total');
-            $gcashTotal = $sales->where('payment_method', 'gcash')->sum('total');
+            $gcashTotal = $sales->where('payment_method', 'ewallet')->sum('total');
 
             // Add extra payments from exchanges (amount_due > 0)
             $exchangeCashTotal  = $exchanges->where('payment_method', 'cash')->sum('amount_paid');
-            $exchangeGcashTotal = $exchanges->where('payment_method', 'gcash')->sum('amount_paid');
+            $exchangeGcashTotal = $exchanges->where('payment_method', 'ewallet')->sum('amount_paid');
 
             $shiftCashTotal = round($cashTotal + $exchangeCashTotal, 2);
 

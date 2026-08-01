@@ -42,6 +42,7 @@ class SaleService
                 'amount_paid' => $data['amount_paid'],
                 'change_amount' => 0,
                 'payment_method' => $data['payment_method'],
+                'ewallet_provider' => $data['ewallet_provider'] ?? null,
                 'ewallet_reference' => $data['ewallet_reference'] ?? null,
                 'ewallet_screenshot' => $data['ewallet_screenshot'] ?? null,
                 'status' => $data['status'] ?? 'completed',

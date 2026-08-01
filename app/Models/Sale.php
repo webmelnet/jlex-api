@@ -23,6 +23,7 @@ class Sale extends Model
         'amount_paid',
         'change_amount',
         'payment_method',
+        'ewallet_provider',
         'ewallet_reference',
         'ewallet_screenshot',
         'status',
