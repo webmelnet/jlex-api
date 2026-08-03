@@ -17,7 +17,6 @@ class Product extends Model
         'description',
         'category_id',
         'brand_id',
-        'supplier_id',
         'cost',
         'price',
         'sale_price',
@@ -62,9 +61,9 @@ class Product extends Model
         return $this->belongsTo(Brand::class);
     }
 
-    public function supplier()
+    public function suppliers()
     {
-        return $this->belongsTo(Supplier::class);
+        return $this->belongsToMany(Supplier::class, 'product_supplier');
     }
 
     public function saleItems()

@@ -25,6 +25,10 @@ class ProductService
             $multipleImages = $data['images'] ?? [];
             unset($data['image'], $data['images']);
 
+            // Extract supplier ids (many-to-many, not a product column)
+            $supplierIds = $data['supplier_ids'] ?? [];
+            unset($data['supplier_ids']);
+
             // Generate SKU if not provided
             if (!isset($data['sku']) || empty($data['sku'])) {
                 $data['sku'] = $this->generateSKU($data['brand_id'] ?? null);
@@ -32,6 +36,7 @@ class ProductService
 
             // Create product
             $product = Product::create(attributes: $data);
+            $product->suppliers()->sync($supplierIds);
 
             // Handle single image upload
             if ($singleImage && is_file($singleImage)) {
@@ -72,7 +77,7 @@ class ProductService
             }
 
             DB::commit();
-            return $product->load(['category', 'brand', 'images']);
+            return $product->load(['category', 'brand', 'suppliers', 'images']);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -158,6 +163,10 @@ class ProductService
             $multipleImages = $data['images'] ?? [];
             unset($data['image'], $data['images']);
 
+            // Extract supplier ids (many-to-many, not a product column)
+            $supplierIds = $data['supplier_ids'] ?? null;
+            unset($data['supplier_ids']);
+
             // If brand changed and no explicit SKU provided, regenerate SKU
             if (
                 isset($data['brand_id']) &&
@@ -169,6 +178,10 @@ class ProductService
 
             // Update product data
             $product->update($data);
+
+            if ($supplierIds !== null) {
+                $product->suppliers()->sync($supplierIds);
+            }
 
             // Handle single image replacement (replaces primary image)
             if ($singleImage && is_file($singleImage)) {
@@ -203,7 +216,7 @@ class ProductService
             }
 
             DB::commit();
-            return $product->fresh(['category', 'brand', 'images']);
+            return $product->fresh(['category', 'brand', 'suppliers', 'images']);
 
         } catch (\Exception $e) {
             DB::rollBack();

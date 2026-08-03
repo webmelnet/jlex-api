@@ -24,7 +24,7 @@ class AdminSeeder extends Seeder
         $superadminAdmin = User::firstOrCreate(
             ['email' => 'superadmin@jlexpharmacy.com'],
             [
-                'name' => 'Superadmin',
+                'name' => 'superadmin',
                 'email_verified_at' => now(),
                 'password' => Hash::make('MelCore#3'),
             ]
@@ -32,48 +32,30 @@ class AdminSeeder extends Seeder
         $superadminAdmin->assignRole($superAdminRole);
         $superadminAdmin->createToken('auth_token')->plainTextToken;
 
-        $admin = User::firstOrCreate(
-            ['email' => 'admin@jlexpharmacy.com'],
-            [
-                'name' => 'Admin',
-                'email_verified_at' => now(),
-                'password' => Hash::make('MelCore#3'),
-            ]
-        );
-        $admin->assignRole($adminRole);
-        $admin->createToken('auth_token')->plainTextToken;
+        $staff = [
+            ['login' => 'raisa', 'full_name' => 'Raisa de Jesus', 'email' => 'raisa.dejesus@jlexpharmacy.com', 'password' => '482913', 'roles' => [$cachierRole, $adminRole]],
+            ['login' => 'easter', 'full_name' => 'Easter Tan', 'email' => 'easter.tan@jlexpharmacy.com', 'password' => '719264', 'roles' => [$cachierRole, $adminRole]],
+            ['login' => 'ruthanne', 'full_name' => 'Ruth Anne de Jesus', 'email' => 'ruthanne.dejesus@jlexpharmacy.com', 'password' => '356807', 'roles' => [$adminRole, $managerRole, $cachierRole]],
+            ['login' => 'rina', 'full_name' => 'Rina Cabiles', 'email' => 'rina.cabiles@jlexpharmacy.com', 'password' => '594182', 'roles' => [$pharmacyAssistantRole, $cachierRole]],
+            ['login' => 'ronald', 'full_name' => 'Ronald Pacheco', 'email' => 'ronald.pacheco@jlexpharmacy.com', 'password' => '827356', 'roles' => [$pharmacyAssistantRole, $cachierRole]],
+            ['login' => 'cristelmanlapaz', 'full_name' => 'Cristel Manlapaz', 'email' => 'cristel.manlapaz@jlexpharmacy.com', 'password' => '148592', 'roles' => [$pharmacyAssistantRole, $cachierRole]],
+            ['login' => 'cristelviray', 'full_name' => 'Cristel Viray', 'email' => 'cristel.viray@jlexpharmacy.com', 'password' => '673024', 'roles' => [$pharmacyAssistantRole]],
+        ];
 
-        $manager = User::firstOrCreate(
-            ['email' => 'manager@jlexpharmacy.com'],
-            [
-                'name' => 'Manager',
-                'email_verified_at' => now(),
-                'password' => Hash::make('MelCore#3'),
-            ]
-        );
-        $manager->assignRole($managerRole);
-        $manager->createToken('auth_token')->plainTextToken;
-
-        $cashier = User::firstOrCreate(
-            ['email' => 'cashier@jlexpharmacy.com'],
-            [
-                'name' => 'Cashier',
-                'email_verified_at' => now(),
-                'password' => Hash::make('MelCore#3'),
-            ]
-        );
-        $cashier->assignRole($cachierRole);
-        $cashier->createToken('auth_token')->plainTextToken;
-
-        $pharmacyAssistant = User::firstOrCreate(
-            ['email' => 'pharmacy@jlexpharmacy.com'],
-            [
-                'name' => 'Pharmacy Assistant',
-                'email_verified_at' => now(),
-                'password' => Hash::make('MelCore#3'),
-            ]
-        );
-        $pharmacyAssistant->assignRole($pharmacyAssistantRole);
-        $pharmacyAssistant->createToken('auth_token')->plainTextToken;
+        foreach ($staff as $person) {
+            $user = User::firstOrCreate(
+                ['email' => $person['email']],
+                [
+                    'name' => $person['login'],
+                    'full_name' => $person['full_name'],
+                    'email_verified_at' => now(),
+                    'password' => Hash::make($person['password']),
+                    'require_dtr' => true,
+                    'daily_hours_required' => 8,
+                ]
+            );
+            $user->assignRole($person['roles']);
+            $user->createToken('auth_token')->plainTextToken;
+        }
     }
 }

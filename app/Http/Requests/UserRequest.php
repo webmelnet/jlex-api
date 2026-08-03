@@ -19,6 +19,7 @@ class UserRequest extends FormRequest
     {
         $rules = [
             'name' => 'required|string|max:255|unique:users,name,' . $this->user?->id,
+            'full_name' => 'nullable|string|max:255',
             'email' => 'required|email|unique:users,email,' . $this->user?->id,
             'password' => 'nullable|string|min:8',
             'role' => 'nullable|string|exists:roles,name',
@@ -35,5 +36,12 @@ class UserRequest extends FormRequest
         ];
         
         return $rules;
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'name' => 'login',
+        ];
     }
 }

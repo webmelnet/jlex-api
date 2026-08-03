@@ -74,6 +74,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/products/trashed', [ProductController::class, 'trashedProducts']);
     Route::post('/products/{id}/restore', [ProductController::class, 'restore']);
     Route::delete('/products/{id}/force', [ProductController::class, 'forceDelete']);
+    Route::post('/products/{product}/suppliers/{supplier}', [ProductController::class, 'attachSupplier']);
+    Route::delete('/products/{product}/suppliers/{supplier}', [ProductController::class, 'detachSupplier']);
     // index & show are public (registered above); only protect write operations
     Route::apiResource('/products', ProductController::class)->except(['index', 'show']);
 

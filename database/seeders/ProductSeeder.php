@@ -270,7 +270,7 @@ class ProductSeeder extends Seeder
                 continue;
             }
 
-            $supplier = $this->getOrCreateSupplier($sheet->getTitle());
+            $this->getOrCreateSupplier($sheet->getTitle());
             $highestRow = $sheet->getHighestDataRow();
 
             for ($row = $headerRow + 1; $row <= $highestRow; $row++) {
@@ -284,10 +284,7 @@ class ProductSeeder extends Seeder
                 $price = $this->cleanNumericValue($columns['price'] ? $sheet->getCellByColumnAndRow($columns['price'], $row)->getValue() : null);
                 $quantity = (int) $this->cleanNumericValue($columns['qty'] ? $sheet->getCellByColumnAndRow($columns['qty'], $row)->getValue() : null);
 
-                $product = Product::firstOrNew([
-                    'name' => $name,
-                    'supplier_id' => $supplier->id,
-                ]);
+                $product = Product::where('name', $name)->first() ?? new Product(['name' => $name]);
 
                 $brand = $this->getOrCreateBrand($this->resolveBrand($name));
 
@@ -367,24 +364,6 @@ class ProductSeeder extends Seeder
         }
 
         return [null, []];
-    }
-
-    private function getOrCreateSupplier(string $sheetTitle): Supplier
-    {
-        $name = trim($sheetTitle);
-
-        if (isset($this->supplierCache[$name])) {
-            return $this->supplierCache[$name];
-        }
-
-        $supplier = Supplier::firstOrCreate(
-            ['name' => $name],
-            ['is_active' => true]
-        );
-
-        $this->supplierCache[$name] = $supplier;
-
-        return $supplier;
     }
 
     /**
@@ -487,6 +466,26 @@ class ProductSeeder extends Seeder
         }
 
         return $base;
+    }
+
+    /**
+     * Ensure a Supplier record exists per sheet title, without linking it to
+     * any product — the association is left for manual assignment.
+     */
+    private function getOrCreateSupplier(string $sheetTitle): Supplier
+    {
+        $name = trim($sheetTitle);
+
+        if (isset($this->supplierCache[$name])) {
+            return $this->supplierCache[$name];
+        }
+
+        $supplier = Supplier::firstOrCreate(
+            ['name' => $name],
+            ['is_active' => true]
+        );
+
+        return $this->supplierCache[$name] = $supplier;
     }
 
     private function getOrCreateCategory(?string $name): ?Category

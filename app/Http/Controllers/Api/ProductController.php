@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\StockMovement;
+use App\Models\Supplier;
 use App\Services\ProductService;
 use App\Exports\ProductsExport;
 use App\Imports\ProductsImport;
@@ -25,7 +26,7 @@ class ProductController extends Controller
 
     public function index(Request $request)
     {
-        $query = $this->applyProductFilters(Product::with(['category', 'brand', 'images']), $request);
+        $query = $this->applyProductFilters(Product::with(['category', 'brand', 'suppliers', 'images']), $request);
 
         $products = $query->get();
 
@@ -49,6 +50,13 @@ class ProductController extends Controller
 
         if ($request->has('brand_id')) {
             $query->where('brand_id', $request->brand_id);
+        }
+
+        if ($request->has('supplier_id')) {
+            $supplierId = $request->supplier_id;
+            $query->whereHas('suppliers', function ($q) use ($supplierId) {
+                $q->where('suppliers.id', $supplierId);
+            });
         }
 
         if ($request->has('search')) {
@@ -80,6 +88,8 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'category_id' => 'nullable|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
+            'supplier_ids' => 'nullable|array',
+            'supplier_ids.*' => 'exists:suppliers,id',
             'cost' => 'required|numeric|min:0',
             'price' => 'required|numeric|min:0',
             'sale_price' => 'nullable|numeric|min:0',
@@ -99,11 +109,15 @@ class ProductController extends Controller
             'expiration_date' => 'nullable|date',
         ]);
 
+        if ($request->boolean('supplier_ids_included')) {
+            $validated['supplier_ids'] = $request->input('supplier_ids', []);
+        }
+
         $product = $this->productService->createProduct($validated);
 
         return response()->json([
             'status' => 'Product created successfully',
-            'product' => $product->load(['category', 'brand'])
+            'product' => $product->load(['category', 'brand', 'suppliers'])
         ], 201);
     }
 
@@ -191,7 +205,7 @@ class ProductController extends Controller
 
     public function show(Product $product)
     {
-        return response()->json($product->load(['category', 'brand', 'images']));
+        return response()->json($product->load(['category', 'brand', 'suppliers', 'images']));
     }
 
     public function update(Request $request, Product $product)
@@ -203,6 +217,8 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'category_id' => 'nullable|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
+            'supplier_ids' => 'nullable|array',
+            'supplier_ids.*' => 'exists:suppliers,id',
             'cost' => 'required|numeric|min:0',
             'price' => 'required|numeric|min:0',
             'sale_price' => 'nullable|numeric|min:0',
@@ -222,11 +238,15 @@ class ProductController extends Controller
             'expiration_date' => 'nullable|date',
         ]);
 
+        if ($request->boolean('supplier_ids_included')) {
+            $validated['supplier_ids'] = $request->input('supplier_ids', []);
+        }
+
         $product = $this->productService->updateProduct($product, $validated);
 
         return response()->json([
             'status' => 'Product updated successfully',
-            'product' => $product->load(['category', 'brand'])
+            'product' => $product->load(['category', 'brand', 'suppliers'])
         ]);
     }
 
@@ -234,6 +254,26 @@ class ProductController extends Controller
     {
         $this->productService->deleteProduct($product);
         return response()->json(null, 204);
+    }
+
+    public function attachSupplier(Request $request, Product $product, Supplier $supplier)
+    {
+        $product->suppliers()->syncWithoutDetaching([$supplier->id]);
+
+        return response()->json([
+            'status' => 'Supplier linked to product',
+            'product' => $product->load(['category', 'brand', 'suppliers']),
+        ]);
+    }
+
+    public function detachSupplier(Request $request, Product $product, Supplier $supplier)
+    {
+        $product->suppliers()->detach($supplier->id);
+
+        return response()->json([
+            'status' => 'Supplier unlinked from product',
+            'product' => $product->load(['category', 'brand', 'suppliers']),
+        ]);
     }
 
     public function lowStock()
