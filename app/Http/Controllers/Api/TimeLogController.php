@@ -66,8 +66,10 @@ class TimeLogController extends Controller
             ->orderBy('clock_in')
             ->get();
 
+        $openEntry = TimeLog::where('user_id', $user->id)->open()->latest('clock_in')->first();
+
         return response()->json([
-            'open_entry'    => $todayEntries->firstWhere('clock_out', null),
+            'open_entry'    => $openEntry,
             'today_entries' => $todayEntries,
         ]);
     }
