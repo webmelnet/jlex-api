@@ -86,6 +86,7 @@ class User extends Authenticatable
             'Admin',
             'Manager',
             'Cashier',
+            'Pharmacy Assistant',
         ];
 
         // Find the highest priority role the user has

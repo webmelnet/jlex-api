@@ -117,7 +117,7 @@ class InventoryCycleService
 
     public function getCycleDetail(InventoryCycle $cycle, array $filters): array
     {
-        $itemsQuery = InventoryCycleItem::with(['product.category', 'product.brand'])
+        $itemsQuery = InventoryCycleItem::with(['product.category', 'product.brand', 'verifiedBy', 'user'])
             ->where('inventory_cycle_id', $cycle->id);
 
         if (!empty($filters['search']) || !empty($filters['category_id']) || !empty($filters['brand_id'])) {
@@ -128,14 +128,15 @@ class InventoryCycleService
 
         $items = $itemsQuery->get()->sortBy(fn ($item) => $item->product->name)->values();
 
-        // Items not yet counted show live Added/Deducted/Non Cash Deducted/Current Stock
-        // (business keeps happening while the count is in progress). Counted items show
-        // the frozen snapshot recordStaffInput() took at the moment staff saved the count.
-        $uncounted = $items->whereNull('staff_input');
-        $uncountedProductIds = $uncounted->pluck('product_id')->all();
-        $movementsByProduct = $this->fetchMovements($uncountedProductIds);
+        // Items not yet verified by a manager show live Added/Deducted/Non Cash
+        // Deducted/Current Stock (business keeps happening while the count is
+        // in progress, even after staff save their count). Verified items show
+        // the frozen snapshot verifyCount() took at the moment a manager verified it.
+        $unverified = $items->whereNull('verified_at');
+        $unverifiedProductIds = $unverified->pluck('product_id')->all();
+        $movementsByProduct = $this->fetchMovements($unverifiedProductIds);
         $periodStart = $this->previousCycle($cycle)?->started_at;
-        $liveStock = Product::whereIn('id', $uncountedProductIds)->pluck('stock_quantity', 'id');
+        $liveStock = Product::whereIn('id', $unverifiedProductIds)->pluck('stock_quantity', 'id');
 
         return [
             'cycle' => [
@@ -148,7 +149,7 @@ class InventoryCycleService
                 'can_reopen' => $cycle->status === 'closed' && $this->isLatestCycle($cycle),
             ],
             'items' => $items->map(function (InventoryCycleItem $item) use ($movementsByProduct, $periodStart, $liveStock) {
-                if ($item->staff_input === null) {
+                if ($item->verified_at === null) {
                     [$added, $deducted, $nonCashDeducted] = $this->classifyMovements(
                         $movementsByProduct->get($item->product_id, collect()),
                         $periodStart
@@ -173,7 +174,10 @@ class InventoryCycleService
                     'non_cash_deducted' => $nonCashDeducted,
                     'current_stock' => $currentStock,
                     'staff_input' => $item->staff_input,
+                    'staff_input_by' => $item->user?->full_name,
                     'variance' => $item->variance,
+                    'verified_at' => $item->verified_at?->toDateTimeString(),
+                    'verified_by' => $item->verifiedBy?->full_name,
                 ];
             })->values()->all(),
         ];
@@ -190,18 +194,12 @@ class InventoryCycleService
                 ->where('product_id', $productId)
                 ->firstOrFail();
 
+            if ($item->verified_at !== null) {
+                throw new \RuntimeException('This item has been verified by a manager and can no longer be edited. Ask a manager to unverify it first.');
+            }
+
             $product = Product::findOrFail($productId);
             $quantityBefore = $product->stock_quantity;
-
-            // Snapshot Added/Deducted/Non Cash Deducted/Current Stock as of right now,
-            // before this save's own reconciliation movement is created below — this
-            // freezes them at "the moment staff physically counted it", per getCycleDetail()
-            // which otherwise keeps recomputing these live while staff_input is still null.
-            $movements = $this->fetchMovements([$product->id])->get($product->id, collect());
-            [$added, $deducted, $nonCashDeducted] = $this->classifyMovements(
-                $movements,
-                $this->previousCycle($cycle)?->started_at
-            );
 
             // Reconcile the live system stock to what staff physically counted.
             // Logged as its own movement type (excluded from ADD_TYPES/DEDUCT_TYPES
@@ -226,18 +224,79 @@ class InventoryCycleService
             }
 
             $item->update([
-                'added' => $added,
-                'deducted' => $deducted,
-                'non_cash_deducted' => $nonCashDeducted,
-                'current_stock' => $quantityBefore,
                 'staff_input' => $staffInput,
                 'variance' => $staffInput - $quantityBefore,
                 'user_id' => auth()->id(),
                 'notes' => $notes,
             ]);
 
-            return $item->fresh();
+            return $item->fresh()->load('user');
         });
+    }
+
+    /**
+     * Manager verifies a staff-counted item. This freezes Added/Deducted/Non
+     * Cash Deducted/Current Stock as of this moment (previously these froze
+     * as soon as staff saved their count — now they keep recomputing live in
+     * getCycleDetail() until a manager verifies) and locks the item so staff
+     * can no longer edit it via recordStaffInput().
+     */
+    public function verifyCount(InventoryCycle $cycle, int $productId, int $verifiedByUserId): InventoryCycleItem
+    {
+        if ($cycle->status !== 'open') {
+            throw new \RuntimeException('This inventory cycle is closed.');
+        }
+
+        return DB::transaction(function () use ($cycle, $productId, $verifiedByUserId) {
+            $item = InventoryCycleItem::where('inventory_cycle_id', $cycle->id)
+                ->where('product_id', $productId)
+                ->firstOrFail();
+
+            if ($item->staff_input === null) {
+                throw new \RuntimeException('This item must be counted before it can be verified.');
+            }
+
+            $product = Product::findOrFail($productId);
+
+            [$added, $deducted, $nonCashDeducted] = $this->classifyMovements(
+                $this->fetchMovements([$product->id])->get($product->id, collect()),
+                $this->previousCycle($cycle)?->started_at
+            );
+
+            $item->update([
+                'added' => $added,
+                'deducted' => $deducted,
+                'non_cash_deducted' => $nonCashDeducted,
+                'current_stock' => $product->stock_quantity,
+                'verified_at' => now(),
+                'verified_by' => $verifiedByUserId,
+            ]);
+
+            return $item->fresh()->load('verifiedBy');
+        });
+    }
+
+    /**
+     * Manager un-verifies an item, unlocking it for staff edits again. Added/
+     * Deducted/Non Cash Deducted/Current Stock go back to recomputing live in
+     * getCycleDetail() since verified_at is now null.
+     */
+    public function unverifyCount(InventoryCycle $cycle, int $productId): InventoryCycleItem
+    {
+        if ($cycle->status !== 'open') {
+            throw new \RuntimeException('This inventory cycle is closed.');
+        }
+
+        $item = InventoryCycleItem::where('inventory_cycle_id', $cycle->id)
+            ->where('product_id', $productId)
+            ->firstOrFail();
+
+        $item->update([
+            'verified_at' => null,
+            'verified_by' => null,
+        ]);
+
+        return $item->fresh()->load('verifiedBy');
     }
 
     public function closeCycle(InventoryCycle $cycle): InventoryCycle

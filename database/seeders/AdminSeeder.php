@@ -33,7 +33,7 @@ class AdminSeeder extends Seeder
         $superadminAdmin->createToken('auth_token')->plainTextToken;
 
         $staff = [
-            ['login' => 'raisa', 'full_name' => 'Raisa de Jesus', 'email' => 'raisa.dejesus@jlexpharmacy.com', 'password' => '482913', 'roles' => [$cachierRole, $adminRole]],
+            ['login' => 'raisa', 'full_name' => 'Raisa de Jesus', 'email' => 'raisa.dejesus@jlexpharmacy.com', 'password' => '482913', 'roles' => [$cachierRole, $adminRole, $managerRole]],
             ['login' => 'easter', 'full_name' => 'Easter Tan', 'email' => 'easter.tan@jlexpharmacy.com', 'password' => '719264', 'roles' => [$cachierRole, $adminRole]],
             ['login' => 'ruthanne', 'full_name' => 'Ruth Anne de Jesus', 'email' => 'ruthanne.dejesus@jlexpharmacy.com', 'password' => '356807', 'roles' => [$adminRole, $managerRole, $cachierRole]],
             ['login' => 'rina', 'full_name' => 'Rina Cabiles', 'email' => 'rina.cabiles@jlexpharmacy.com', 'password' => '594182', 'roles' => [$pharmacyAssistantRole, $cachierRole]],

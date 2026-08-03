@@ -29,6 +29,20 @@ use App\Http\Controllers\Api\TimeLogController;
 Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
     $user = $request->user();
     $user->role = $user->getRoleAttribute();
+    $user->roles_list = $user->getRolesListAttribute();
+    return $user;
+});
+
+Route::middleware(['auth:sanctum'])->post('/switch-role', function (Request $request) {
+    $request->validate(['role' => 'required|string']);
+
+    $user = $request->user();
+    if (!$user->switchRole($request->role)) {
+        abort(422, 'You do not have the selected role.');
+    }
+
+    $user->role = $user->getRoleAttribute();
+    $user->roles_list = $user->getRolesListAttribute();
     return $user;
 });
 
@@ -172,6 +186,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/inventory-cycle', [InventoryCycleController::class, 'store']);
     Route::get('/inventory-cycle/{cycle}', [InventoryCycleController::class, 'show']);
     Route::post('/inventory-cycle/{cycle}/count', [InventoryCycleController::class, 'recordCount']);
+    Route::post('/inventory-cycle/{cycle}/verify', [InventoryCycleController::class, 'verifyCount']);
+    Route::post('/inventory-cycle/{cycle}/unverify', [InventoryCycleController::class, 'unverifyCount']);
     Route::post('/inventory-cycle/{cycle}/close', [InventoryCycleController::class, 'close']);
     Route::post('/inventory-cycle/{cycle}/reopen', [InventoryCycleController::class, 'reopen']);
 

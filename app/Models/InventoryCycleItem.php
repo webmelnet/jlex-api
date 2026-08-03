@@ -21,6 +21,8 @@ class InventoryCycleItem extends Model
         'variance',
         'user_id',
         'notes',
+        'verified_at',
+        'verified_by',
     ];
 
     protected $casts = [
@@ -31,6 +33,7 @@ class InventoryCycleItem extends Model
         'current_stock' => 'integer',
         'staff_input' => 'integer',
         'variance' => 'integer',
+        'verified_at' => 'datetime',
     ];
 
     public function cycle()
@@ -46,5 +49,10 @@ class InventoryCycleItem extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function verifiedBy()
+    {
+        return $this->belongsTo(User::class, 'verified_by');
     }
 }

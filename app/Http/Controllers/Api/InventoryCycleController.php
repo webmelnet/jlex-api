@@ -96,12 +96,78 @@ class InventoryCycleController extends Controller
 
             return response()->json([
                 'status' => 'Inventory count saved successfully',
-                'item' => $item,
+                'item' => [
+                    'product_id' => $item->product_id,
+                    'staff_input' => $item->staff_input,
+                    'staff_input_by' => $item->user?->full_name,
+                    'variance' => $item->variance,
+                ],
             ], 201);
         } catch (\RuntimeException $e) {
             return response()->json([
                 'error' => $e->getMessage(),
             ], 422);
         }
+    }
+
+    public function verifyCount(InventoryCycle $cycle, Request $request)
+    {
+        abort_unless($request->user()->hasRole('Manager'), 403);
+
+        $validated = $request->validate([
+            'product_id' => 'required|exists:products,id',
+        ]);
+
+        try {
+            $item = $this->inventoryCycleService->verifyCount(
+                $cycle,
+                $validated['product_id'],
+                $request->user()->id
+            );
+
+            return response()->json([
+                'status' => 'Item verified',
+                'item' => $this->formatItem($item),
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    public function unverifyCount(InventoryCycle $cycle, Request $request)
+    {
+        abort_unless($request->user()->hasRole('Manager'), 403);
+
+        $validated = $request->validate([
+            'product_id' => 'required|exists:products,id',
+        ]);
+
+        try {
+            $item = $this->inventoryCycleService->unverifyCount($cycle, $validated['product_id']);
+
+            return response()->json([
+                'status' => 'Item verification removed',
+                'item' => $this->formatItem($item),
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    private function formatItem(\App\Models\InventoryCycleItem $item): array
+    {
+        return [
+            'product_id' => $item->product_id,
+            'added' => $item->added,
+            'deducted' => $item->deducted,
+            'non_cash_deducted' => $item->non_cash_deducted,
+            'current_stock' => $item->current_stock,
+            'verified_at' => $item->verified_at?->toDateTimeString(),
+            'verified_by' => $item->verifiedBy?->full_name,
+        ];
     }
 }
