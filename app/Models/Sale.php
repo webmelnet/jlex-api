@@ -14,6 +14,7 @@ class Sale extends Model
         'invoice_number',
         'customer_id',
         'customer_type',
+        'staff_user_id',
         'user_id',
         'sale_date',
         'subtotal',
@@ -49,6 +50,11 @@ class Sale extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function staffUser()
+    {
+        return $this->belongsTo(User::class, 'staff_user_id');
     }
 
     public function items()

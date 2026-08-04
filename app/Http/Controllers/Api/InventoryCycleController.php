@@ -71,6 +71,7 @@ class InventoryCycleController extends Controller
             'search' => 'nullable|string',
             'category_id' => 'nullable|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
+            'supplier_id' => 'nullable|exists:suppliers,id',
         ]);
 
         return response()->json(

@@ -33,6 +33,7 @@ class SaleService
                 'invoice_number' => $data['invoice_number'],
                 'customer_id' => $data['customer_id'] ?? null,
                 'customer_type' => $data['customer_type'] ?? 'walk-in',
+                'staff_user_id' => $data['staff_user_id'] ?? null,
                 'user_id' => $data['user_id'],
                 'sale_date' => $data['sale_date'],
                 'subtotal' => 0,
@@ -95,10 +96,15 @@ class SaleService
             // expense so they show up in the shift's drawer totals instead
             // of inflating cash/gcash sales.
             if ($sale->customer_type === 'staff') {
+                $staffName = $sale->staffUser?->full_name ?: $sale->staffUser?->name;
+                $description = $staffName
+                    ? "Staff purchase - Invoice {$sale->invoice_number} - {$staffName}"
+                    : "Staff purchase - Invoice {$sale->invoice_number}";
+
                 CashDrawerEntry::create([
                     'type' => 'non_cash_expense',
                     'amount' => $sale->total,
-                    'description' => "Staff purchase - Invoice {$sale->invoice_number}",
+                    'description' => $description,
                     'user_id' => $data['user_id'],
                 ]);
             }

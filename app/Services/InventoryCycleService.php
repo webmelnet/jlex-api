@@ -120,7 +120,7 @@ class InventoryCycleService
         $itemsQuery = InventoryCycleItem::with(['product.category', 'product.brand', 'verifiedBy', 'user'])
             ->where('inventory_cycle_id', $cycle->id);
 
-        if (!empty($filters['search']) || !empty($filters['category_id']) || !empty($filters['brand_id'])) {
+        if (!empty($filters['search']) || !empty($filters['category_id']) || !empty($filters['brand_id']) || !empty($filters['supplier_id'])) {
             $itemsQuery->whereHas('product', function ($q) use ($filters) {
                 $this->applyProductFilters($q, $filters);
             });
@@ -370,6 +370,12 @@ class InventoryCycleService
 
         if (!empty($filters['brand_id'])) {
             $query->where('brand_id', $filters['brand_id']);
+        }
+
+        if (!empty($filters['supplier_id'])) {
+            $query->whereHas('suppliers', function ($q) use ($filters) {
+                $q->where('suppliers.id', $filters['supplier_id']);
+            });
         }
 
         if (!empty($filters['search'])) {

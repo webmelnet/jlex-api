@@ -25,7 +25,7 @@ class SaleController extends Controller
 
     public function index(Request $request)
     {
-        $query = Sale::with(['items.product', 'customer', 'user']);
+        $query = Sale::with(['items.product', 'customer', 'user', 'staffUser']);
 
         // Filter by status
         if ($request->has('status')) {
@@ -51,6 +51,16 @@ class SaleController extends Controller
             $query->where('user_id', $request->user_id);
         }
 
+        // Filter by staff member purchased for
+        if ($request->has('staff_user_id')) {
+            $query->where('staff_user_id', $request->staff_user_id);
+        }
+
+        // Filter by customer type
+        if ($request->has('customer_type')) {
+            $query->where('customer_type', $request->customer_type);
+        }
+
         // Filter by payment method
         if ($request->has('payment_method')) {
             $query->where('payment_method', $request->payment_method);
@@ -67,6 +77,7 @@ class SaleController extends Controller
             'invoice_number' => 'nullable|string|unique:sales,invoice_number',
             'customer_id' => 'nullable|exists:customers,id',
             'customer_type' => 'nullable|string|in:walk-in,phone-order,staff',
+            'staff_user_id' => 'required_if:customer_type,staff|nullable|exists:users,id',
             'sale_date' => 'nullable|date',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
@@ -105,7 +116,7 @@ class SaleController extends Controller
             $sale = $this->saleService->createSale($validated);
 
             // Load relationships for the receipt
-            $sale->load(['items.product', 'customer', 'user']);
+            $sale->load(['items.product', 'customer', 'user', 'staffUser']);
 
             if ($orderQueue) {
                 try {
@@ -148,7 +159,7 @@ class SaleController extends Controller
 
     public function show(Sale $sale)
     {
-        return response()->json($sale->load(['items.product', 'customer', 'user']));
+        return response()->json($sale->load(['items.product', 'customer', 'user', 'staffUser']));
     }
 
     public function cancel(Sale $sale)
@@ -158,7 +169,7 @@ class SaleController extends Controller
 
             return response()->json([
                 'status' => 'Sale cancelled successfully',
-                'sale' => $sale->load(['items.product', 'customer', 'user'])
+                'sale' => $sale->load(['items.product', 'customer', 'user', 'staffUser'])
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -186,7 +197,7 @@ class SaleController extends Controller
     {
         $sales = Sale::today()
             ->completed()
-            ->with(['items.product', 'customer', 'user'])
+            ->with(['items.product', 'customer', 'user', 'staffUser'])
             ->get();
 
         // Calculate Total Sale (before discount) = subtotal + tax
@@ -219,7 +230,7 @@ class SaleController extends Controller
     {
         $sale = Sale::withTrashed()->findOrFail($id);
         $sale->restore();
-        return response()->json($sale->load(['items.product', 'customer', 'user']), 200);
+        return response()->json($sale->load(['items.product', 'customer', 'user', 'staffUser']), 200);
     }
 
     public function forceDelete($id)
@@ -231,7 +242,7 @@ class SaleController extends Controller
 
     public function trashedSales()
     {
-        $sales = Sale::onlyTrashed()->with(['items.product', 'customer', 'user'])->get();
+        $sales = Sale::onlyTrashed()->with(['items.product', 'customer', 'user', 'staffUser'])->get();
         return response()->json($sales);
     }
 }
