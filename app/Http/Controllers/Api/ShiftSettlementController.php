@@ -7,6 +7,7 @@ use App\Models\ShiftSettlement;
 use App\Models\Sale;
 use App\Models\Exchange;
 use App\Models\CashDrawerEntry;
+use App\Models\AppSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -88,6 +89,8 @@ class ShiftSettlementController extends Controller
             ->merge($settlements->pluck('settled_at'))
             ->push($dayEnd);
 
+        $defaultStartingCash = (float) (AppSetting::asObject()['default_starting_cash'] ?? 0);
+
         $shifts = [];
         for ($i = 0; $i < $boundaries->count() - 1; $i++) {
             $from = $boundaries[$i];
@@ -116,7 +119,13 @@ class ShiftSettlementController extends Controller
             $shiftCashTotal = round($cashTotal + $exchangeCashTotal, 2);
 
             $drawerEntries = CashDrawerEntry::whereBetween('created_at', [$from, $to])->get();
-            $startingCash      = round($drawerEntries->where('type', 'starting_cash')->sum('amount'), 2);
+            $startingCashEntries = $drawerEntries->where('type', 'starting_cash');
+            // No entry logged yet for this shift — fall back to the configured
+            // default so the drawer total is correct without a manual step.
+            // Once a cashier logs an actual entry, that takes over.
+            $startingCash      = $startingCashEntries->isEmpty()
+                ? round($defaultStartingCash, 2)
+                : round($startingCashEntries->sum('amount'), 2);
             $cashAdded         = round($drawerEntries->where('type', 'cash_added')->sum('amount'), 2);
             $cashExpenses      = round($drawerEntries->where('type', 'cash_expense')->sum('amount'), 2);
             $nonCashExpenses   = round($drawerEntries->where('type', 'non_cash_expense')->sum('amount'), 2);
