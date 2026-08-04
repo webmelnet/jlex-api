@@ -7,6 +7,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (DB::table('app_settings')->where('key', 'default_starting_cash')->exists()) {
+            return;
+        }
+
         DB::table('app_settings')->insert([
             'key' => 'default_starting_cash',
             'value' => '0',
