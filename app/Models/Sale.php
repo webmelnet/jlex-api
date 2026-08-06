@@ -62,6 +62,11 @@ class Sale extends Model
         return $this->hasMany(SaleItem::class);
     }
 
+    public function queue()
+    {
+        return $this->hasOne(OrderQueue::class);
+    }
+
     // Scopes
     public function scopeCompleted($query)
     {

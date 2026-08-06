@@ -98,7 +98,7 @@ class ShiftSettlementController extends Controller
 
             $sales = Sale::completed()
                 ->whereBetween('sale_date', [$from, $to])
-                ->with(['items.product', 'customer', 'user'])
+                ->with(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy'])
                 ->orderBy('sale_date')
                 ->get();
 

@@ -7,11 +7,26 @@ use App\Models\SaleItem;
 use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\CashDrawerEntry;
+use App\Models\AppSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class SaleService
 {
+    /**
+     * Points earned = floor(sale total / amount required per point).
+     */
+    private function loyaltyPointsForTotal(float $total): int
+    {
+        $threshold = (float) (AppSetting::asObject()['loyalty_points_amount_threshold'] ?? 200);
+
+        if ($threshold <= 0) {
+            return 0;
+        }
+
+        return (int) floor($total / $threshold);
+    }
+
     public function createSale(array $data)
     {
         return DB::transaction(function () use ($data) {
@@ -112,7 +127,7 @@ class SaleService
             // Add loyalty points to customer if applicable
             if ($sale->customer_id && $sale->status === 'completed') {
                 $customer = $sale->customer;
-                $points = floor($sale->total / 10); // 1 point per $10
+                $points = $this->loyaltyPointsForTotal($sale->total);
                 $customer->addLoyaltyPoints($points);
             }
 
@@ -153,7 +168,7 @@ class SaleService
             // Deduct loyalty points if customer exists
             if ($sale->customer_id) {
                 $customer = $sale->customer;
-                $points = floor($sale->total / 10);
+                $points = $this->loyaltyPointsForTotal($sale->total);
                 $customer->deductLoyaltyPoints($points);
             }
 

@@ -23,7 +23,8 @@ class CustomerController extends Controller
                   ->orWhere('last_name', 'like', "%{$search}%")
                   ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
                   ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+                  ->orWhere('phone', 'like', "%{$search}%")
+                  ->orWhere('id_number', 'like', "%{$search}%");
             });
         }
 
@@ -62,7 +63,9 @@ class CustomerController extends Controller
 
     public function show(Customer $customer)
     {
-        return response()->json($customer->load('sales'));
+        return response()->json($customer->load(['sales' => function ($query) {
+            $query->with(['items.product', 'user', 'staffUser', 'queue.createdBy'])->orderByDesc('sale_date');
+        }]));
     }
 
     public function update(Request $request, Customer $customer)
@@ -101,6 +104,8 @@ class CustomerController extends Controller
 
     public function addLoyaltyPoints(Request $request, Customer $customer)
     {
+        abort_unless($request->user()->hasRole('Superadmin'), 403);
+
         $validated = $request->validate([
             'points' => 'required|integer|min:1',
         ]);
@@ -115,6 +120,8 @@ class CustomerController extends Controller
 
     public function deductLoyaltyPoints(Request $request, Customer $customer)
     {
+        abort_unless($request->user()->hasRole('Superadmin'), 403);
+
         $validated = $request->validate([
             'points' => 'required|integer|min:1',
         ]);
