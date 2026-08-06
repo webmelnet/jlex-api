@@ -86,6 +86,7 @@ class SaleController extends Controller
             'items.*.discount' => 'nullable|numeric|min:0',
             'tax' => 'nullable|numeric|min:0',
             'discount' => 'nullable|numeric|min:0',
+            'loyalty_points_used' => 'nullable|integer|min:0',
             'amount_paid' => 'required|numeric|min:0',
             'payment_method' => 'required|string',
             'ewallet_provider' => 'required_if:payment_method,ewallet|nullable|string',

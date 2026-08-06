@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\Product;
+use App\Models\Customer;
 use App\Models\StockMovement;
 use App\Models\CashDrawerEntry;
 use App\Models\AppSetting;
@@ -43,6 +44,20 @@ class SaleService
             // Set user_id (cashier) from authenticated user
             $data['user_id'] = auth()->id();
 
+            // Redeem loyalty points (1 point = ₱1) before creating the sale so an
+            // insufficient balance aborts the whole transaction, not just this step.
+            $loyaltyPointsUsed = (int) ($data['loyalty_points_used'] ?? 0);
+            if ($loyaltyPointsUsed > 0) {
+                if (empty($data['customer_id'])) {
+                    throw new \Exception('A customer must be selected to redeem loyalty points');
+                }
+
+                $customer = Customer::findOrFail($data['customer_id']);
+                if (!$customer->deductLoyaltyPoints($loyaltyPointsUsed)) {
+                    throw new \Exception('Customer does not have enough loyalty points');
+                }
+            }
+
             // Create sale
             $sale = Sale::create([
                 'invoice_number' => $data['invoice_number'],
@@ -54,6 +69,7 @@ class SaleService
                 'subtotal' => 0,
                 'tax' => $data['tax'] ?? 0,
                 'discount' => $data['discount'] ?? 0,
+                'loyalty_points_used' => $loyaltyPointsUsed,
                 'total' => 0,
                 'amount_paid' => $data['amount_paid'],
                 'change_amount' => 0,
@@ -170,6 +186,11 @@ class SaleService
                 $customer = $sale->customer;
                 $points = $this->loyaltyPointsForTotal($sale->total);
                 $customer->deductLoyaltyPoints($points);
+
+                // Refund any points that were redeemed for a discount on this sale
+                if ($sale->loyalty_points_used > 0) {
+                    $customer->addLoyaltyPoints($sale->loyalty_points_used);
+                }
             }
 
             $sale->status = 'cancelled';

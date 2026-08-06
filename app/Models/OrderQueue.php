@@ -15,6 +15,8 @@ class OrderQueue extends Model
         'customer_id',
         'customer_name',
         'customer_type',
+        'loyalty_points_used',
+        'loyalty_discount',
         'created_by_user_id',
         'claimed_by_user_id',
         'claimed_at',
@@ -28,6 +30,8 @@ class OrderQueue extends Model
     protected $casts = [
         'claimed_at' => 'datetime',
         'editing_started_at' => 'datetime',
+        'loyalty_points_used' => 'integer',
+        'loyalty_discount' => 'decimal:2',
     ];
 
     // Relationships

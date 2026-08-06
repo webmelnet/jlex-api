@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Customer;
 use App\Models\OrderQueue;
 use App\Models\OrderQueueItem;
 use App\Models\Product;
@@ -17,7 +18,10 @@ class OrderQueueService
     public function createQueueOrder(array $data)
     {
         return DB::transaction(function () use ($data) {
-            $orderQueue = $this->createWithRetry($data);
+            $subtotal = $this->calculateItemsSubtotal($data['items']);
+            [$loyaltyPointsUsed, $loyaltyDiscount] = $this->resolveLoyaltyRedemption($data, $subtotal);
+
+            $orderQueue = $this->createWithRetry($data, $loyaltyPointsUsed, $loyaltyDiscount);
 
             foreach ($data['items'] as $item) {
                 $product = Product::findOrFail($item['product_id']);
@@ -35,7 +39,7 @@ class OrderQueueService
         });
     }
 
-    private function createWithRetry(array $data)
+    private function createWithRetry(array $data, int $loyaltyPointsUsed = 0, float $loyaltyDiscount = 0)
     {
         $attempts = 0;
 
@@ -46,6 +50,8 @@ class OrderQueueService
                     'customer_id' => $data['customer_id'] ?? null,
                     'customer_name' => $data['customer_name'] ?? null,
                     'customer_type' => $data['customer_type'] ?? 'walk-in',
+                    'loyalty_points_used' => $loyaltyPointsUsed,
+                    'loyalty_discount' => $loyaltyDiscount,
                     'created_by_user_id' => auth()->id(),
                     'status' => 'queued',
                     'notes' => $data['notes'] ?? null,
@@ -59,6 +65,48 @@ class OrderQueueService
         }
     }
 
+    private function calculateItemsSubtotal(array $items): float
+    {
+        $subtotal = 0;
+
+        foreach ($items as $item) {
+            $product = Product::findOrFail($item['product_id']);
+            $subtotal += $product->effective_price * $item['quantity'];
+        }
+
+        return $subtotal;
+    }
+
+    /**
+     * Redemption rate is fixed at 1 point = ₱1, capped by both the
+     * customer's balance and the order subtotal (points are whole numbers,
+     * so the discount can't exceed the floor of the subtotal either).
+     *
+     * @return array{0: int, 1: float} [loyaltyPointsUsed, loyaltyDiscount]
+     */
+    private function resolveLoyaltyRedemption(array $data, float $subtotal): array
+    {
+        $requested = (int) ($data['loyalty_points_used'] ?? 0);
+
+        if ($requested <= 0) {
+            return [0, 0];
+        }
+
+        if (empty($data['customer_id'])) {
+            throw new \Exception('A customer must be selected to redeem loyalty points');
+        }
+
+        $customer = Customer::findOrFail($data['customer_id']);
+
+        if ($requested > $customer->loyalty_points) {
+            throw new \Exception('Customer does not have enough loyalty points');
+        }
+
+        $pointsUsed = min($requested, (int) floor($subtotal), (int) $customer->loyalty_points);
+
+        return [$pointsUsed, (float) $pointsUsed];
+    }
+
     public function updateQueueOrder(OrderQueue $orderQueue, array $data)
     {
         return DB::transaction(function () use ($orderQueue, $data) {
@@ -68,9 +116,14 @@ class OrderQueueService
                 throw new \Exception('Only orders that are still queued can be edited');
             }
 
+            $subtotal = $this->calculateItemsSubtotal($data['items']);
+            [$loyaltyPointsUsed, $loyaltyDiscount] = $this->resolveLoyaltyRedemption($data, $subtotal);
+
             $locked->customer_id = $data['customer_id'] ?? null;
             $locked->customer_name = $data['customer_name'] ?? null;
             $locked->customer_type = $data['customer_type'] ?? 'walk-in';
+            $locked->loyalty_points_used = $loyaltyPointsUsed;
+            $locked->loyalty_discount = $loyaltyDiscount;
             $locked->notes = $data['notes'] ?? null;
             $locked->editing_by_user_id = null;
             $locked->editing_started_at = null;

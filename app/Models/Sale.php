@@ -20,6 +20,7 @@ class Sale extends Model
         'subtotal',
         'tax',
         'discount',
+        'loyalty_points_used',
         'total',
         'amount_paid',
         'change_amount',
@@ -36,15 +37,25 @@ class Sale extends Model
         'subtotal' => 'decimal:2',
         'tax' => 'decimal:2',
         'discount' => 'decimal:2',
+        'loyalty_points_used' => 'integer',
         'total' => 'decimal:2',
         'amount_paid' => 'decimal:2',
         'change_amount' => 'decimal:2',
+    ];
+
+    protected $appends = [
+        'customer_name',
     ];
 
     // Relationships
     public function customer()
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function getCustomerNameAttribute()
+    {
+        return $this->customer?->name;
     }
 
     public function user()
