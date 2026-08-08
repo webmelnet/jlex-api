@@ -27,8 +27,12 @@ class ProductController extends Controller
     public function index(Request $request)
     {
         $query = $this->applyProductFilters(Product::with(['category', 'brand', 'suppliers', 'images']), $request);
+        $query = $this->applyProductSorting($query, $request);
 
-        $products = $query->get();
+        $perPage = (int) $request->input('per_page', 20);
+        $perPage = max(1, min($perPage, 200));
+
+        $products = $query->paginate($perPage)->withQueryString();
 
         return response()->json($products);
     }
@@ -74,6 +78,65 @@ class ProductController extends Controller
             } elseif ($request->stock_status === 'out') {
                 $query->outOfStock();
             }
+        }
+
+        if ($request->boolean('on_sale')) {
+            $query->whereNotNull('sale_price')
+                ->whereNotNull('sale_mode')
+                ->where(function ($q) {
+                    $q->where('sale_mode', 'manual')
+                      ->orWhere(function ($q2) {
+                          $q2->where('sale_mode', 'scheduled')
+                              ->where('sale_start_at', '<=', now())
+                              ->where('sale_end_at', '>=', now());
+                      })
+                      ->orWhere(function ($q2) {
+                          $q2->where('sale_mode', 'stock')
+                              ->where('stock_quantity', '>', 0);
+                      });
+                });
+        }
+
+        if ($request->has('expiration')) {
+            if ($request->expiration === 'expired') {
+                $query->whereNotNull('expiration_date')
+                    ->where('expiration_date', '<', now()->startOfDay());
+            } elseif ($request->expiration === 'near_expiration') {
+                $query->whereNotNull('expiration_date')
+                    ->where('expiration_date', '>=', now()->startOfDay())
+                    ->where('expiration_date', '<=', now()->addDays(30)->endOfDay());
+            }
+        }
+
+        return $query;
+    }
+
+    private function applyProductSorting($query, Request $request)
+    {
+        $sortField = $request->input('sort_field');
+        $sortOrder = strtolower($request->input('sort_order', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+        $columnMap = [
+            'sku' => 'products.sku',
+            'name' => 'products.name',
+            'price' => 'products.price',
+            'stock' => 'products.stock_quantity',
+            'expiration' => 'products.expiration_date',
+            'stock_verified' => 'products.stock_verified',
+        ];
+
+        if ($sortField === 'category') {
+            $query->select('products.*')
+                ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
+                ->orderBy('categories.name', $sortOrder);
+        } elseif ($sortField === 'brand') {
+            $query->select('products.*')
+                ->leftJoin('brands', 'brands.id', '=', 'products.brand_id')
+                ->orderBy('brands.name', $sortOrder);
+        } elseif ($sortField && isset($columnMap[$sortField])) {
+            $query->orderBy($columnMap[$sortField], $sortOrder);
+        } else {
+            $query->orderBy('products.name', 'asc');
         }
 
         return $query;
@@ -354,18 +417,6 @@ class ProductController extends Controller
     {
         $query = $this->applyProductFilters(Product::with(['category.parent', 'brand']), $request);
         $products = $query->orderBy('sku')->get();
-
-        if ($request->boolean('on_sale')) {
-            $products = $products->filter(fn ($product) => $product->is_on_sale)->values();
-        }
-
-        if ($request->has('expiration')) {
-            if ($request->expiration === 'expired') {
-                $products = $products->filter(fn ($product) => $product->is_expired)->values();
-            } elseif ($request->expiration === 'near_expiration') {
-                $products = $products->filter(fn ($product) => $product->is_near_expiration)->values();
-            }
-        }
 
         return Excel::download(new ProductsExport($products), 'products_' . date('Y-m-d_His') . '.xlsx');
     }
