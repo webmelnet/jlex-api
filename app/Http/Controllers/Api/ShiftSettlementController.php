@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ShiftSettlement;
 use App\Models\Sale;
 use App\Models\Exchange;
+use App\Models\SaleReturn;
 use App\Models\CashDrawerEntry;
 use App\Models\AppSetting;
 use Illuminate\Http\Request;
@@ -98,7 +99,7 @@ class ShiftSettlementController extends Controller
 
             $sales = Sale::completed()
                 ->whereBetween('sale_date', [$from, $to])
-                ->with(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy'])
+                ->with(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy', 'returns.user'])
                 ->orderBy('sale_date')
                 ->get();
 
@@ -106,6 +107,12 @@ class ShiftSettlementController extends Controller
                 ->whereBetween('exchange_date', [$from, $to])
                 ->with(['items.product', 'originalSale', 'user'])
                 ->orderBy('exchange_date')
+                ->get();
+
+            $returns = SaleReturn::where('status', 'completed')
+                ->whereBetween('return_date', [$from, $to])
+                ->with(['items.product', 'sale', 'user'])
+                ->orderBy('return_date')
                 ->get();
 
             $total      = $sales->sum('total');
@@ -129,7 +136,8 @@ class ShiftSettlementController extends Controller
             $cashAdded         = round($drawerEntries->where('type', 'cash_added')->sum('amount'), 2);
             $cashExpenses      = round($drawerEntries->where('type', 'cash_expense')->sum('amount'), 2);
             $nonCashExpenses   = round($drawerEntries->where('type', 'non_cash_expense')->sum('amount'), 2);
-            $cashInDrawer      = round($startingCash + $cashAdded + $shiftCashTotal - $cashExpenses, 2);
+            $cashRefunds       = round($drawerEntries->where('type', 'cash_refund')->sum('amount'), 2);
+            $cashInDrawer      = round($startingCash + $cashAdded + $shiftCashTotal - $cashExpenses - $cashRefunds, 2);
 
             $shifts[] = [
                 'shift_number'       => $i + 1,
@@ -145,10 +153,14 @@ class ShiftSettlementController extends Controller
                 'exchanges'          => $exchanges,
                 'exchanges_count'    => $exchanges->count(),
                 'exchanges_paid'     => round($exchanges->sum('amount_paid'), 2),
+                'returns'            => $returns,
+                'returns_count'      => $returns->count(),
+                'returns_total'      => round($returns->sum('refund_total'), 2),
                 'starting_cash'      => $startingCash,
                 'cash_added'         => $cashAdded,
                 'cash_expenses'      => $cashExpenses,
                 'non_cash_expenses'  => $nonCashExpenses,
+                'cash_refunds'       => $cashRefunds,
                 'cash_in_drawer'     => $cashInDrawer,
             ];
         }

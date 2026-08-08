@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\PromoVideoController;
 use App\Http\Controllers\Api\ShiftSettlementController;
 use App\Http\Controllers\Api\CashDrawerEntryController;
 use App\Http\Controllers\Api\ExchangeController;
+use App\Http\Controllers\Api\ReturnController;
 use App\Http\Controllers\Api\WebsiteConfigurationController;
 use App\Http\Controllers\Api\AppSettingController;
 use App\Http\Controllers\Api\TimeLogController;
@@ -143,6 +144,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Exchange Routes
     Route::post('/exchanges/lookup-sale', [ExchangeController::class, 'lookupSale']);
     Route::apiResource('/exchanges', ExchangeController::class)->only(['index', 'store', 'show']);
+
+    // Return Routes
+    Route::get('/returns/search-sales', [ReturnController::class, 'searchSales']);
+    Route::post('/returns/lookup-sale', [ReturnController::class, 'lookupSale']);
+    Route::apiResource('/returns', ReturnController::class)->only(['index', 'store', 'show']);
 
     // Sale Routes
     Route::post('/sales/{sale}/cancel', [SaleController::class, 'cancel']);

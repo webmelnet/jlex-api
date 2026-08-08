@@ -203,7 +203,7 @@ class SaleService
     public function getSalesReport($startDate = null, $endDate = null)
     {
         $query = Sale::with(['items.product', 'customer', 'user'])
-            ->where('status', 'completed');
+            ->whereIn('status', ['completed', 'refunded']);
 
         if ($startDate) {
             $query->whereDate('sale_date', '>=', $startDate);

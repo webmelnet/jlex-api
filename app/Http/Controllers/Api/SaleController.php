@@ -25,7 +25,7 @@ class SaleController extends Controller
 
     public function index(Request $request)
     {
-        $query = Sale::with(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy']);
+        $query = Sale::with(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy', 'returns.user']);
 
         // Filter by status
         if ($request->has('status')) {
@@ -117,7 +117,7 @@ class SaleController extends Controller
             $sale = $this->saleService->createSale($validated);
 
             // Load relationships for the receipt
-            $sale->load(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy']);
+            $sale->load(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy', 'returns.user']);
 
             if ($orderQueue) {
                 try {
@@ -160,7 +160,7 @@ class SaleController extends Controller
 
     public function show(Sale $sale)
     {
-        return response()->json($sale->load(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy']));
+        return response()->json($sale->load(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy', 'returns.user']));
     }
 
     public function cancel(Sale $sale)
@@ -170,7 +170,7 @@ class SaleController extends Controller
 
             return response()->json([
                 'status' => 'Sale cancelled successfully',
-                'sale' => $sale->load(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy'])
+                'sale' => $sale->load(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy', 'returns.user'])
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -198,7 +198,7 @@ class SaleController extends Controller
     {
         $sales = Sale::today()
             ->completed()
-            ->with(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy'])
+            ->with(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy', 'returns.user'])
             ->get();
 
         // Calculate Total Sale (before discount) = subtotal + tax
@@ -231,7 +231,7 @@ class SaleController extends Controller
     {
         $sale = Sale::withTrashed()->findOrFail($id);
         $sale->restore();
-        return response()->json($sale->load(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy']), 200);
+        return response()->json($sale->load(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy', 'returns.user']), 200);
     }
 
     public function forceDelete($id)
@@ -243,7 +243,7 @@ class SaleController extends Controller
 
     public function trashedSales()
     {
-        $sales = Sale::onlyTrashed()->with(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy'])->get();
+        $sales = Sale::onlyTrashed()->with(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy', 'returns.user'])->get();
         return response()->json($sales);
     }
 }

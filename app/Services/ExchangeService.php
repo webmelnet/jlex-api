@@ -6,6 +6,7 @@ use App\Models\Exchange;
 use App\Models\ExchangeItem;
 use App\Models\Product;
 use App\Models\Sale;
+use App\Models\SaleItem;
 use App\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
 
@@ -103,6 +104,13 @@ class ExchangeService
                         'user_id'         => auth()->id(),
                         'notes'           => 'Item returned via exchange ' . $exchange->exchange_number,
                     ]);
+                }
+
+                // Keep the shared returned-quantity ledger (also used by the
+                // standalone Return flow) in sync so a line can't be
+                // returned again after it's already gone back via exchange.
+                if (!empty($item['sale_item_id'])) {
+                    SaleItem::where('id', $item['sale_item_id'])->increment('returned_quantity', $item['quantity']);
                 }
             }
 

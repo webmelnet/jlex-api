@@ -78,10 +78,15 @@ class Sale extends Model
         return $this->hasOne(OrderQueue::class);
     }
 
+    public function returns()
+    {
+        return $this->hasMany(SaleReturn::class, 'sale_id');
+    }
+
     // Scopes
     public function scopeCompleted($query)
     {
-        return $query->where('status', 'completed');
+        return $query->whereIn('status', ['completed', 'refunded']);
     }
 
     public function scopePending($query)

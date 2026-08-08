@@ -13,6 +13,7 @@ class SaleItem extends Model
         'sale_id',
         'product_id',
         'quantity',
+        'returned_quantity',
         'price',
         'discount',
         'subtotal',
@@ -20,6 +21,7 @@ class SaleItem extends Model
 
     protected $casts = [
         'quantity' => 'integer',
+        'returned_quantity' => 'integer',
         'price' => 'decimal:2',
         'discount' => 'decimal:2',
         'subtotal' => 'decimal:2',
@@ -34,5 +36,10 @@ class SaleItem extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function remainingReturnableQuantity(): int
+    {
+        return max(0, $this->quantity - $this->returned_quantity);
     }
 }
