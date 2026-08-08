@@ -117,16 +117,23 @@ class InventoryCycleService
 
     public function getCycleDetail(InventoryCycle $cycle, array $filters): array
     {
-        $itemsQuery = InventoryCycleItem::with(['product.category', 'product.brand', 'verifiedBy', 'user'])
+        $itemsQuery = InventoryCycleItem::with([
+            'product' => fn ($q) => $q->withTrashed(),
+            'product.category',
+            'product.brand',
+            'verifiedBy',
+            'user',
+        ])
             ->where('inventory_cycle_id', $cycle->id);
 
         if (!empty($filters['search']) || !empty($filters['category_id']) || !empty($filters['brand_id']) || !empty($filters['supplier_id'])) {
             $itemsQuery->whereHas('product', function ($q) use ($filters) {
+                $q->withTrashed();
                 $this->applyProductFilters($q, $filters);
             });
         }
 
-        $items = $itemsQuery->get()->sortBy(fn ($item) => $item->product->name)->values();
+        $items = $itemsQuery->get()->sortBy(fn ($item) => $item->product?->name ?? '')->values();
 
         // Items not yet verified by a manager show live Added/Deducted/Non Cash
         // Deducted/Current Stock (business keeps happening while the count is
@@ -164,10 +171,10 @@ class InventoryCycleService
 
                 return [
                     'product_id' => $item->product_id,
-                    'sku' => $item->product->sku,
-                    'name' => $item->product->name,
-                    'category' => $item->product->category?->name,
-                    'brand' => $item->product->brand?->name,
+                    'sku' => $item->product?->sku,
+                    'name' => $item->product?->name,
+                    'category' => $item->product?->category?->name,
+                    'brand' => $item->product?->brand?->name,
                     'beginning_stock' => $item->beginning_stock,
                     'added' => $added,
                     'deducted' => $deducted,
