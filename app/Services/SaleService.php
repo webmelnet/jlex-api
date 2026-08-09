@@ -221,40 +221,7 @@ class SaleService
         });
 
         // Format sales data for frontend
-        $formattedSales = $sales->map(function ($sale) {
-            return [
-                'id' => $sale->id,
-                'invoice_number' => $sale->invoice_number,
-                'customer_name' => $sale->customer ? $sale->customer->name : null,
-                'subtotal' => $sale->subtotal,
-                'discount' => $sale->discount,
-                'total' => $sale->total,
-                'amount_paid' => $sale->amount_paid,
-                'change_amount' => $sale->change_amount,
-                'payment_method' => $sale->payment_method,
-                'status' => $sale->status,
-                'created_at' => $sale->sale_date->toISOString(), // Map sale_date to created_at for frontend
-                'items_count' => $sale->items->count(),
-                'items' => $sale->items->map(function ($item) {
-                    return [
-                        'id' => $item->id,
-                        'sale_id' => $item->sale_id,
-                        'product_id' => $item->product_id,
-                        'quantity' => $item->quantity,
-                        'price' => $item->price,
-                        'discount' => $item->discount,
-                        'subtotal' => $item->subtotal,
-                        'product' => [
-                            'id' => $item->product->id,
-                            'name' => $item->product->name,
-                            'sku' => $item->product->sku,
-                            'cost' => $item->product->cost ?? 0,
-                            'price' => $item->product->price,
-                        ],
-                    ];
-                }),
-            ];
-        });
+        $formattedSales = $sales->map(fn ($sale) => $this->formatSaleForReport($sale));
 
         return [
             'sales' => $formattedSales,
@@ -273,6 +240,117 @@ class SaleService
                 'start' => $startDate,
                 'end' => $endDate,
             ],
+        ];
+    }
+
+    /**
+     * Paginated, sortable sales list for the Sales Transactions table.
+     * Kept separate from getSalesReport() because the chart and top-products
+     * panels need the full unpaginated date-range dataset, while the
+     * transactions table only ever needs one page of it.
+     */
+    public function getPaginatedSalesTransactions(
+        $startDate = null,
+        $endDate = null,
+        string $sortField = 'time',
+        string $sortOrder = 'desc',
+        int $perPage = 30,
+        int $page = 1
+    ) {
+        $query = Sale::whereIn('status', ['completed', 'refunded']);
+
+        if ($startDate) {
+            $query->whereDate('sale_date', '>=', $startDate);
+        }
+
+        if ($endDate) {
+            $query->whereDate('sale_date', '<=', $endDate);
+        }
+
+        $sortOrder = strtolower($sortOrder) === 'desc' ? 'desc' : 'asc';
+
+        switch ($sortField) {
+            case 'invoice_number':
+                $query->orderBy('invoice_number', $sortOrder);
+                break;
+            case 'total':
+                $query->orderBy('total', $sortOrder);
+                break;
+            case 'customer':
+                $query->select('sales.*')
+                    ->selectSub(
+                        Customer::whereColumn('customers.id', 'sales.customer_id')
+                            ->selectRaw("TRIM(CONCAT(first_name, ' ', last_name))"),
+                        'customer_sort_name'
+                    )
+                    ->orderBy('customer_sort_name', $sortOrder);
+                break;
+            case 'revenue':
+                $query->select('sales.*')
+                    ->selectSub(
+                        SaleItem::whereColumn('sale_items.sale_id', 'sales.id')
+                            ->leftJoin('products', 'products.id', '=', 'sale_items.product_id')
+                            ->selectRaw('COALESCE(SUM((sale_items.price - COALESCE(products.cost, 0)) * sale_items.quantity), 0)'),
+                        'revenue_sort'
+                    )
+                    ->orderBy('revenue_sort', $sortOrder);
+                break;
+            case 'time':
+            default:
+                $query->orderBy('sale_date', $sortOrder);
+                break;
+        }
+
+        $paginated = $query->paginate($perPage, ['*'], 'page', $page);
+
+        $paginated->getCollection()->load(['items.product', 'customer']);
+
+        return [
+            'data' => $paginated->getCollection()->map(fn ($sale) => $this->formatSaleForReport($sale))->values(),
+            'current_page' => $paginated->currentPage(),
+            'last_page' => $paginated->lastPage(),
+            'per_page' => $paginated->perPage(),
+            'total' => $paginated->total(),
+        ];
+    }
+
+    /**
+     * Format a Sale (with items.product / customer loaded) for report and
+     * transaction-list responses.
+     */
+    private function formatSaleForReport($sale): array
+    {
+        return [
+            'id' => $sale->id,
+            'invoice_number' => $sale->invoice_number,
+            'customer_name' => $sale->customer ? $sale->customer->name : null,
+            'subtotal' => $sale->subtotal,
+            'discount' => $sale->discount,
+            'total' => $sale->total,
+            'amount_paid' => $sale->amount_paid,
+            'change_amount' => $sale->change_amount,
+            'payment_method' => $sale->payment_method,
+            'status' => $sale->status,
+            'created_at' => $sale->sale_date->toISOString(), // Map sale_date to created_at for frontend
+            'items_count' => $sale->items->count(),
+            'items' => $sale->items->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'sale_id' => $item->sale_id,
+                    'product_id' => $item->product_id,
+                    'quantity' => $item->quantity,
+                    'price' => $item->price,
+                    'discount' => $item->discount,
+                    'subtotal' => $item->subtotal,
+                    'product' => [
+                        'id' => $item->product->id,
+                        'name' => $item->product->name,
+                        'sku' => $item->product->sku,
+                        'cost' => $item->product->cost ?? 0,
+                        'price' => $item->product->price,
+                    ],
+                ];
+            }),
         ];
     }
 

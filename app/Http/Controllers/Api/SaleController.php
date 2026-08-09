@@ -194,6 +194,29 @@ class SaleController extends Controller
         return response()->json($report);
     }
 
+    public function transactions(Request $request)
+    {
+        $validated = $request->validate([
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
+            'sort_field' => 'nullable|string|in:invoice_number,time,total,customer,revenue',
+            'sort_order' => 'nullable|string|in:asc,desc',
+            'per_page' => 'nullable|integer|min:1|max:100',
+            'page' => 'nullable|integer|min:1',
+        ]);
+
+        $result = $this->saleService->getPaginatedSalesTransactions(
+            $validated['start_date'] ?? null,
+            $validated['end_date'] ?? null,
+            $validated['sort_field'] ?? 'time',
+            $validated['sort_order'] ?? 'desc',
+            $validated['per_page'] ?? 30,
+            $validated['page'] ?? 1
+        );
+
+        return response()->json($result);
+    }
+
     public function todaySales()
     {
         $sales = Sale::today()

@@ -154,6 +154,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/sales/{sale}/cancel', [SaleController::class, 'cancel']);
     Route::get('/sales/today', [SaleController::class, 'todaySales']);
     Route::get('/sales/report', [SaleController::class, 'report']);
+    Route::get('/sales/transactions', [SaleController::class, 'transactions']);
     Route::get('/sales/trashed', [SaleController::class, 'trashedSales']);
     Route::post('/sales/{id}/restore', [SaleController::class, 'restore']);
     Route::delete('/sales/{id}/force', [SaleController::class, 'forceDelete']);
