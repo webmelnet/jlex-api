@@ -165,6 +165,26 @@ class ShiftSettlementController extends Controller
             ];
         }
 
+        // On a past day, the period after the final settlement up to midnight
+        // is not a real shift unless something actually happened in it — it's
+        // just an artifact of always closing the boundary list at day's end.
+        // Drop it so callers that pick "the last shift" (e.g. the cash drawer
+        // summary) land on the shift that actually holds the day's activity.
+        while ($isPast && count($shifts) > 1 && $this->isEmptyShift(end($shifts))) {
+            array_pop($shifts);
+        }
+
         return $shifts;
+    }
+
+    private function isEmptyShift(array $shift): bool
+    {
+        return $shift['count'] === 0
+            && $shift['exchanges_count'] === 0
+            && $shift['returns_count'] === 0
+            && $shift['cash_added'] == 0
+            && $shift['cash_expenses'] == 0
+            && $shift['non_cash_expenses'] == 0
+            && $shift['cash_refunds'] == 0;
     }
 }
