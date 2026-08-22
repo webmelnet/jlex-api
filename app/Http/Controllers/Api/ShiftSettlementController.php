@@ -81,6 +81,79 @@ class ShiftSettlementController extends Controller
     }
 
     /**
+     * Get a daily cash drawer summary for each day in a date range. Each day
+     * is aggregated as a single combined shift (sums across whatever shifts
+     * actually occurred that day), used by the Sales dashboard's Cash Drawer
+     * table so it reads consistently for both single-day and multi-day filters.
+     */
+    public function byRange(Request $request)
+    {
+        $request->validate([
+            'start' => 'required|date_format:Y-m-d',
+            'end'   => 'required|date_format:Y-m-d|after_or_equal:start',
+        ]);
+
+        $defaultStartingCash = (float) (AppSetting::asObject()['default_starting_cash'] ?? 0);
+
+        $start = Carbon::parse($request->start)->startOfDay();
+        $end   = Carbon::parse($request->end)->startOfDay();
+
+        $days = [];
+        for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+            $dayStart = $date->copy()->startOfDay();
+            $dayEnd   = $date->copy()->endOfDay();
+
+            $sales = Sale::completed()->whereBetween('sale_date', [$dayStart, $dayEnd])->get();
+
+            $exchanges = Exchange::where('status', 'completed')
+                ->whereBetween('exchange_date', [$dayStart, $dayEnd])
+                ->get();
+
+            $cashSales   = round($sales->where('payment_method', 'cash')->sum('total')
+                + $exchanges->where('payment_method', 'cash')->sum('amount_paid'), 2);
+            $ewalletSales = round($sales->where('payment_method', 'ewallet')->sum('total')
+                + $exchanges->where('payment_method', 'ewallet')->sum('amount_paid'), 2);
+            $grandTotalSales = round($sales->sum('total'), 2);
+
+            $drawerEntries = CashDrawerEntry::whereBetween('created_at', [$dayStart, $dayEnd])->get();
+
+            $startingCashEntries = $drawerEntries->where('type', 'starting_cash');
+            $startingCash = $startingCashEntries->isEmpty()
+                ? round($defaultStartingCash, 2)
+                : round($startingCashEntries->sum('amount'), 2);
+            $cashAdded       = round($drawerEntries->where('type', 'cash_added')->sum('amount'), 2);
+            $cashExpenses    = round($drawerEntries->where('type', 'cash_expense')->sum('amount'), 2);
+            $nonCashExpenses = round($drawerEntries->where('type', 'non_cash_expense')->sum('amount'), 2);
+            $cashRefunds     = round($drawerEntries->where('type', 'cash_refund')->sum('amount'), 2);
+            $cashInDrawer    = round($startingCash + $cashAdded + $cashSales - $cashExpenses - $cashRefunds, 2);
+
+            $cashExpenseEntries = $drawerEntries->where('type', 'cash_expense')
+                ->map(fn ($entry) => [
+                    'id'          => $entry->id,
+                    'amount'      => (float) $entry->amount,
+                    'description' => $entry->description,
+                ])
+                ->values();
+
+            $days[] = [
+                'date'                  => $date->toDateString(),
+                'starting_cash'         => $startingCash,
+                'cash_added'            => $cashAdded,
+                'cash_sales'            => $cashSales,
+                'ewallet_sales'         => $ewalletSales,
+                'grand_total_sales'     => $grandTotalSales,
+                'cash_expenses'         => $cashExpenses,
+                'cash_expense_entries'  => $cashExpenseEntries,
+                'non_cash_expenses'     => $nonCashExpenses,
+                'cash_refunds'          => $cashRefunds,
+                'cash_in_drawer'        => $cashInDrawer,
+            ];
+        }
+
+        return response()->json(['days' => $days]);
+    }
+
+    /**
      * Get cash expense entries within a date range (for multi-day reporting,
      * where per-shift breakdowns aren't shown).
      */
