@@ -80,6 +80,37 @@ class ShiftSettlementController extends Controller
         ]);
     }
 
+    /**
+     * Get cash expense entries within a date range (for multi-day reporting,
+     * where per-shift breakdowns aren't shown).
+     */
+    public function cashExpenses(Request $request)
+    {
+        $request->validate([
+            'start' => 'required|date_format:Y-m-d',
+            'end'   => 'required|date_format:Y-m-d|after_or_equal:start',
+        ]);
+
+        $start = Carbon::parse($request->start)->startOfDay();
+        $end   = Carbon::parse($request->end)->endOfDay();
+
+        $entries = CashDrawerEntry::where('type', 'cash_expense')
+            ->whereBetween('created_at', [$start, $end])
+            ->orderBy('created_at')
+            ->get(['id', 'amount', 'description', 'created_at'])
+            ->map(fn ($entry) => [
+                'id'          => $entry->id,
+                'date'        => $entry->created_at->toIso8601String(),
+                'amount'      => (float) $entry->amount,
+                'description' => $entry->description,
+            ]);
+
+        return response()->json([
+            'entries' => $entries,
+            'total'   => round($entries->sum('amount'), 2),
+        ]);
+    }
+
     private function buildShifts($settlements, ?Carbon $date = null)
     {
         $dayStart = $date ? $date->copy()->startOfDay() : Carbon::today();

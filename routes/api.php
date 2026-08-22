@@ -137,6 +137,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/shift-settlements', [ShiftSettlementController::class, 'store']);
     Route::get('/shift-settlements/today', [ShiftSettlementController::class, 'today']);
     Route::get('/shift-settlements/by-date', [ShiftSettlementController::class, 'byDate']);
+    Route::get('/shift-settlements/cash-expenses', [ShiftSettlementController::class, 'cashExpenses']);
 
     // Cash Drawer Entry Routes
     Route::post('/cash-drawer-entries', [CashDrawerEntryController::class, 'store']);
