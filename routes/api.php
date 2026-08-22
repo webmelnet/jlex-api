@@ -140,6 +140,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Cash Drawer Entry Routes
     Route::post('/cash-drawer-entries', [CashDrawerEntryController::class, 'store']);
+    Route::put('/cash-drawer-entries/{cashDrawerEntry}', [CashDrawerEntryController::class, 'update']);
 
     // Exchange Routes
     Route::post('/exchanges/lookup-sale', [ExchangeController::class, 'lookupSale']);

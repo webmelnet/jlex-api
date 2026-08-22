@@ -139,6 +139,15 @@ class ShiftSettlementController extends Controller
             $cashRefunds       = round($drawerEntries->where('type', 'cash_refund')->sum('amount'), 2);
             $cashInDrawer      = round($startingCash + $cashAdded + $shiftCashTotal - $cashExpenses - $cashRefunds, 2);
 
+            $cashExpenseEntries = $drawerEntries->where('type', 'cash_expense')
+                ->map(fn ($entry) => ['id' => $entry->id, 'amount' => (float) $entry->amount, 'description' => $entry->description])
+                ->values();
+            $nonCashExpenseEntries = $drawerEntries->where('type', 'non_cash_expense')
+                ->map(fn ($entry) => ['id' => $entry->id, 'amount' => (float) $entry->amount, 'description' => $entry->description])
+                ->values();
+            $cashExpensesDescription = $cashExpenseEntries->pluck('description')->filter()->implode(', ');
+            $nonCashExpensesDescription = $nonCashExpenseEntries->pluck('description')->filter()->implode(', ');
+
             $shifts[] = [
                 'shift_number'       => $i + 1,
                 'label'              => 'Shift ' . ($i + 1),
@@ -159,7 +168,11 @@ class ShiftSettlementController extends Controller
                 'starting_cash'      => $startingCash,
                 'cash_added'         => $cashAdded,
                 'cash_expenses'      => $cashExpenses,
+                'cash_expenses_description' => $cashExpensesDescription,
+                'cash_expense_entries' => $cashExpenseEntries,
                 'non_cash_expenses'  => $nonCashExpenses,
+                'non_cash_expenses_description' => $nonCashExpensesDescription,
+                'non_cash_expense_entries' => $nonCashExpenseEntries,
                 'cash_refunds'       => $cashRefunds,
                 'cash_in_drawer'     => $cashInDrawer,
             ];

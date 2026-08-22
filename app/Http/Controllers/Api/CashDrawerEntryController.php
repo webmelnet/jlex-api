@@ -31,4 +31,25 @@ class CashDrawerEntryController extends Controller
             'entry'   => $entry->load('user'),
         ], 201);
     }
+
+    /**
+     * Update the amount/description of an existing cash drawer entry.
+     */
+    public function update(Request $request, CashDrawerEntry $cashDrawerEntry)
+    {
+        $validated = $request->validate([
+            'amount'      => 'required|numeric|min:0.01',
+            'description' => 'nullable|string|max:255',
+        ]);
+
+        $cashDrawerEntry->update([
+            'amount'      => $validated['amount'],
+            'description' => $validated['description'] ?? null,
+        ]);
+
+        return response()->json([
+            'message' => 'Cash drawer entry updated successfully.',
+            'entry'   => $cashDrawerEntry->load('user'),
+        ]);
+    }
 }
