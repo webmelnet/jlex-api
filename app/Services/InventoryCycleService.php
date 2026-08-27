@@ -88,7 +88,7 @@ class InventoryCycleService
             // 0/live-stock here, not computed from movement history — getCycleDetail()
             // recomputes them live for any item that hasn't been counted yet (staff_input
             // still null), so business activity keeps showing up while the count is in
-            // progress. They only freeze once recordStaffInput() saves a count.
+            // progress. They only freeze once a manager verifies via verifyCount().
             $rows = $products->map(function (Product $product) use ($previousStaffInputs, $cycle, $now) {
                 return [
                     'inventory_cycle_id' => $cycle->id,
@@ -190,6 +190,14 @@ class InventoryCycleService
         ];
     }
 
+    /**
+     * Staff records their physical count. This only stores the count and
+     * variance on the cycle item — it deliberately does NOT touch the
+     * product's live stock_quantity or write a StockMovement. The system
+     * stock is only reconciled once a manager verifies the count via
+     * verifyCount(), so a staff-entered number can't silently move stock
+     * before a manager has checked it.
+     */
     public function recordStaffInput(InventoryCycle $cycle, int $productId, int $staffInput, ?string $notes = null): InventoryCycleItem
     {
         if ($cycle->status !== 'open') {
@@ -206,33 +214,10 @@ class InventoryCycleService
             }
 
             $product = Product::findOrFail($productId);
-            $quantityBefore = $product->stock_quantity;
-
-            // Reconcile the live system stock to what staff physically counted.
-            // Logged as its own movement type (excluded from ADD_TYPES/DEDUCT_TYPES
-            // above) so it isn't double-counted into a future cycle's Added/Deducted —
-            // the correction is already captured via this cycle's staff_input becoming
-            // the next cycle's Beginning Stock.
-            if ($product->track_inventory && $staffInput !== $quantityBefore) {
-                $product->stock_quantity = $staffInput;
-                $product->save();
-
-                StockMovement::create([
-                    'product_id' => $product->id,
-                    'type' => 'inventory_cycle',
-                    'quantity' => abs($staffInput - $quantityBefore),
-                    'quantity_before' => $quantityBefore,
-                    'quantity_after' => $staffInput,
-                    'reference_type' => 'inventory_cycle_id',
-                    'reference_id' => $cycle->id,
-                    'user_id' => auth()->id(),
-                    'notes' => $notes ?: 'Stock reconciled via Inventory Cycle count',
-                ]);
-            }
 
             $item->update([
                 'staff_input' => $staffInput,
-                'variance' => $staffInput - $quantityBefore,
+                'variance' => $staffInput - $product->stock_quantity,
                 'user_id' => auth()->id(),
                 'notes' => $notes,
             ]);
@@ -242,11 +227,17 @@ class InventoryCycleService
     }
 
     /**
-     * Manager verifies a staff-counted item. This freezes Added/Deducted/Non
-     * Cash Deducted/Current Stock as of this moment (previously these froze
-     * as soon as staff saved their count — now they keep recomputing live in
-     * getCycleDetail() until a manager verifies) and locks the item so staff
-     * can no longer edit it via recordStaffInput().
+     * Manager verifies a staff-counted item. This is the point at which the
+     * staff-entered count is actually applied: the product's live
+     * stock_quantity is reconciled to staff_input (logged as its own
+     * StockMovement type, excluded from ADD_TYPES/DEDUCT_TYPES above so it
+     * isn't double-counted into a future cycle's Added/Deducted — the
+     * correction is already captured via this cycle's staff_input becoming
+     * the next cycle's Beginning Stock), and Added/Deducted/Non Cash
+     * Deducted/Current Stock are frozen as of this moment (previously these
+     * froze as soon as staff saved their count — now they keep recomputing
+     * live in getCycleDetail() until a manager verifies). Verifying also
+     * locks the item so staff can no longer edit it via recordStaffInput().
      */
     public function verifyCount(InventoryCycle $cycle, int $productId, int $verifiedByUserId): InventoryCycleItem
     {
@@ -264,6 +255,24 @@ class InventoryCycleService
             }
 
             $product = Product::findOrFail($productId);
+            $quantityBefore = $product->stock_quantity;
+
+            if ($product->track_inventory && $item->staff_input !== $quantityBefore) {
+                $product->stock_quantity = $item->staff_input;
+                $product->save();
+
+                StockMovement::create([
+                    'product_id' => $product->id,
+                    'type' => 'inventory_cycle',
+                    'quantity' => abs($item->staff_input - $quantityBefore),
+                    'quantity_before' => $quantityBefore,
+                    'quantity_after' => $item->staff_input,
+                    'reference_type' => 'inventory_cycle_id',
+                    'reference_id' => $cycle->id,
+                    'user_id' => $verifiedByUserId,
+                    'notes' => $item->notes ?: 'Stock reconciled via Inventory Cycle verification',
+                ]);
+            }
 
             [$added, $deducted, $nonCashDeducted] = $this->classifyMovements(
                 $this->fetchMovements([$product->id])->get($product->id, collect()),
@@ -286,7 +295,12 @@ class InventoryCycleService
     /**
      * Manager un-verifies an item, unlocking it for staff edits again. Added/
      * Deducted/Non Cash Deducted/Current Stock go back to recomputing live in
-     * getCycleDetail() since verified_at is now null.
+     * getCycleDetail() since verified_at is now null. Any stock reconciliation
+     * verifyCount() applied is also reverted here — the StockMovement it wrote
+     * (type 'inventory_cycle', scoped to this cycle/product) records the prior
+     * quantity, so the product's stock_quantity is restored and that movement
+     * removed rather than left as a stale audit entry for a count that's no
+     * longer verified.
      */
     public function unverifyCount(InventoryCycle $cycle, int $productId): InventoryCycleItem
     {
@@ -294,16 +308,30 @@ class InventoryCycleService
             throw new \RuntimeException('This inventory cycle is closed.');
         }
 
-        $item = InventoryCycleItem::where('inventory_cycle_id', $cycle->id)
-            ->where('product_id', $productId)
-            ->firstOrFail();
+        return DB::transaction(function () use ($cycle, $productId) {
+            $item = InventoryCycleItem::where('inventory_cycle_id', $cycle->id)
+                ->where('product_id', $productId)
+                ->firstOrFail();
 
-        $item->update([
-            'verified_at' => null,
-            'verified_by' => null,
-        ]);
+            $movement = StockMovement::where('product_id', $productId)
+                ->where('type', 'inventory_cycle')
+                ->where('reference_type', 'inventory_cycle_id')
+                ->where('reference_id', $cycle->id)
+                ->latest('id')
+                ->first();
 
-        return $item->fresh()->load('verifiedBy');
+            if ($movement) {
+                Product::whereKey($productId)->update(['stock_quantity' => $movement->quantity_before]);
+                $movement->delete();
+            }
+
+            $item->update([
+                'verified_at' => null,
+                'verified_by' => null,
+            ]);
+
+            return $item->fresh()->load('verifiedBy');
+        });
     }
 
     public function closeCycle(InventoryCycle $cycle): InventoryCycle

@@ -68,7 +68,7 @@ class StockService
         });
     }
 
-    public function getStockMovements($productId = null, $startDate = null, $endDate = null)
+    public function getStockMovements($productId = null, $startDate = null, $endDate = null, $search = null, $categoryId = null, $brandId = null, $perPage = 20)
     {
         $query = StockMovement::with(['product', 'user']);
 
@@ -84,7 +84,27 @@ class StockService
             $query->whereDate('created_at', '<=', $endDate);
         }
 
-        return $query->orderBy('created_at', 'desc')->get();
+        if ($search) {
+            $query->whereHas('product', function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('sku', 'like', "%{$search}%")
+                    ->orWhere('barcode', 'like', "%{$search}%");
+            });
+        }
+
+        if ($categoryId) {
+            $query->whereHas('product', function ($q) use ($categoryId) {
+                $q->where('category_id', $categoryId);
+            });
+        }
+
+        if ($brandId) {
+            $query->whereHas('product', function ($q) use ($brandId) {
+                $q->where('brand_id', $brandId);
+            });
+        }
+
+        return $query->orderBy('created_at', 'desc')->paginate($perPage)->withQueryString();
     }
 
     public function getInventoryValue()

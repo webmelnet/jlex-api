@@ -47,12 +47,22 @@ class StockController extends Controller
             'product_id' => 'nullable|exists:products,id',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
+            'search' => 'nullable|string|max:255',
+            'category_id' => 'nullable|exists:categories,id',
+            'brand_id' => 'nullable|exists:brands,id',
+            'per_page' => 'nullable|integer',
         ]);
+
+        $perPage = max(1, min((int) ($validated['per_page'] ?? 20), 200));
 
         $movements = $this->stockService->getStockMovements(
             $validated['product_id'] ?? null,
             $validated['start_date'] ?? null,
-            $validated['end_date'] ?? null
+            $validated['end_date'] ?? null,
+            $validated['search'] ?? null,
+            $validated['category_id'] ?? null,
+            $validated['brand_id'] ?? null,
+            $perPage
         );
 
         return response()->json($movements);
