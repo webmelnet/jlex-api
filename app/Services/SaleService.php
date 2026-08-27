@@ -202,7 +202,11 @@ class SaleService
 
     public function getSalesReport($startDate = null, $endDate = null)
     {
-        $query = Sale::with(['items.product', 'customer', 'user'])
+        $query = Sale::with([
+            'items.product' => fn ($query) => $query->withTrashed(),
+            'customer',
+            'user',
+        ])
             ->whereIn('status', ['completed', 'refunded']);
 
         if ($startDate) {
@@ -303,7 +307,10 @@ class SaleService
 
         $paginated = $query->paginate($perPage, ['*'], 'page', $page);
 
-        $paginated->getCollection()->load(['items.product', 'customer']);
+        $paginated->getCollection()->load([
+            'items.product' => fn ($query) => $query->withTrashed(),
+            'customer',
+        ]);
 
         return [
             'data' => $paginated->getCollection()->map(fn ($sale) => $this->formatSaleForReport($sale))->values(),
@@ -342,13 +349,13 @@ class SaleService
                     'price' => $item->price,
                     'discount' => $item->discount,
                     'subtotal' => $item->subtotal,
-                    'product' => [
+                    'product' => $item->product ? [
                         'id' => $item->product->id,
                         'name' => $item->product->name,
                         'sku' => $item->product->sku,
                         'cost' => $item->product->cost ?? 0,
                         'price' => $item->product->price,
-                    ],
+                    ] : null,
                 ];
             }),
         ];
