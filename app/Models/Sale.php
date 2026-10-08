@@ -12,6 +12,9 @@ class Sale extends Model
 
     protected $fillable = [
         'invoice_number',
+        'client_uuid',
+        'offline_receipt_number',
+        'synced_at',
         'customer_id',
         'customer_type',
         'staff_user_id',
@@ -34,6 +37,7 @@ class Sale extends Model
 
     protected $casts = [
         'sale_date' => 'datetime',
+        'synced_at' => 'datetime',
         'subtotal' => 'decimal:2',
         'tax' => 'decimal:2',
         'discount' => 'decimal:2',

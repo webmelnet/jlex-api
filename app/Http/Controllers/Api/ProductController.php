@@ -371,6 +371,34 @@ class ProductController extends Controller
         return response()->json($products);
     }
 
+    /**
+     * Slim copy of the whole catalog for the POS offline cache — just the
+     * fields the POS needs to search and ring up a sale without the server.
+     */
+    public function posSnapshot()
+    {
+        $products = Product::with('primaryImage')
+            ->get()
+            ->map(fn (Product $p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'sku' => $p->sku,
+                'barcode' => $p->barcode,
+                'price' => $p->price,
+                'effective_price' => $p->effective_price,
+                'is_on_sale' => $p->is_on_sale,
+                'stock_quantity' => $p->stock_quantity,
+                'track_inventory' => (bool) $p->track_inventory,
+                'return_policy' => $p->return_policy,
+                'image' => $p->primaryImage?->url,
+            ]);
+
+        return response()->json([
+            'generated_at' => now()->toIso8601String(),
+            'products' => $products,
+        ]);
+    }
+
     public function restore($id)
     {
         $product = Product::withTrashed()->findOrFail($id);

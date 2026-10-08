@@ -61,6 +61,9 @@ class SaleService
             // Create sale
             $sale = Sale::create([
                 'invoice_number' => $data['invoice_number'],
+                'client_uuid' => $data['client_uuid'] ?? null,
+                'offline_receipt_number' => $data['offline_receipt_number'] ?? null,
+                'synced_at' => !empty($data['offline_receipt_number']) ? now() : null,
                 'customer_id' => $data['customer_id'] ?? null,
                 'customer_type' => $data['customer_type'] ?? 'walk-in',
                 'staff_user_id' => $data['staff_user_id'] ?? null,

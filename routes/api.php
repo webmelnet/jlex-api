@@ -83,6 +83,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/products/export', [ProductController::class, 'export']);
     Route::post('/products/import', [ProductController::class, 'import']);
     Route::get('/products/last-sku', [ProductController::class, 'getLastSku']);
+    Route::get('/products/pos-snapshot', [ProductController::class, 'posSnapshot']);
     Route::get('/products/low-stock', [ProductController::class, 'lowStock']);
     Route::get('/products/out-of-stock', [ProductController::class, 'outOfStock']);
     Route::get('/products/near-expiration', [ProductController::class, 'nearExpiration']);

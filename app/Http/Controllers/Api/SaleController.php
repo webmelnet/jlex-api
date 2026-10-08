@@ -8,6 +8,7 @@ use App\Models\Sale;
 use App\Services\SaleService;
 use App\Services\S3UploadService;
 use App\Services\OrderQueueService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class SaleController extends Controller
@@ -75,6 +76,8 @@ class SaleController extends Controller
     {
         $validated = $request->validate([
             'invoice_number' => 'nullable|string|unique:sales,invoice_number',
+            'client_uuid' => 'nullable|uuid',
+            'offline_receipt_number' => 'nullable|string|max:50',
             'customer_id' => 'nullable|exists:customers,id',
             'customer_type' => 'nullable|string|in:walk-in,phone-order,staff',
             'staff_user_id' => 'required_if:customer_type,staff|nullable|exists:users,id',
@@ -96,6 +99,25 @@ class SaleController extends Controller
             'notes' => 'nullable|string',
             'order_queue_id' => 'nullable|exists:order_queues,id',
         ]);
+
+        // Idempotent retry: the POS resends the same client_uuid when a request
+        // times out or a sale queued offline is synced — return the existing sale.
+        if (!empty($validated['client_uuid'])) {
+            $existing = $this->findSaleByClientUuid($validated['client_uuid']);
+            if ($existing) {
+                return response()->json([
+                    'status' => 'Sale already recorded',
+                    'sale' => $existing,
+                ], 200);
+            }
+        }
+
+        // Offline sales carry the time they were rung up (as an ISO string from the
+        // tablet); store it in app time and never accept a future date.
+        if (!empty($validated['sale_date'])) {
+            $saleDate = Carbon::parse($validated['sale_date'])->setTimezone(config('app.timezone'));
+            $validated['sale_date'] = $saleDate->isFuture() ? now() : $saleDate;
+        }
 
         $orderQueueId = $validated['order_queue_id'] ?? null;
         unset($validated['order_queue_id']);
@@ -134,10 +156,27 @@ class SaleController extends Controller
                 'sale' => $sale // This is what we need for printing
             ], 201);
         } catch (\Exception $e) {
+            // Two concurrent retries of the same sale: the unique index rejected
+            // the second one, so hand back the sale the first one created.
+            if (!empty($validated['client_uuid']) && ($existing = $this->findSaleByClientUuid($validated['client_uuid']))) {
+                return response()->json([
+                    'status' => 'Sale already recorded',
+                    'sale' => $existing,
+                ], 200);
+            }
+
             return response()->json([
                 'error' => $e->getMessage()
             ], 400);
         }
+    }
+
+    private function findSaleByClientUuid(string $clientUuid): ?Sale
+    {
+        return Sale::withTrashed()
+            ->where('client_uuid', $clientUuid)
+            ->first()
+            ?->load(['items.product', 'customer', 'user', 'staffUser', 'queue.createdBy', 'returns.user']);
     }
 
     public function uploadGcashScreenshot(Request $request)
